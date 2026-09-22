@@ -1,6 +1,6 @@
-const VERSION='3.2.1';
+const VERSION='3.2.2';
 const CACHE=`4w1f-${VERSION}`;
-const SHELL=['./','./index.html','./production.js','./manifest.webmanifest','./version.json','./assets/icon-180.png','./assets/icon-192.png','./assets/icon-512.png','./assets/favicon-32.png','./assets/launch-car-final.webp',];
+const SHELL=['./','./index.html','./production.js','./manifest.webmanifest','./version.json','./assets/icon-180.png','./assets/icon-192.png','./assets/icon-512.png','./assets/favicon-32.png',];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}))});
 self.addEventListener('activate',e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('4w1f-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim()})())});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(r.mode==='navigate'||u.pathname.endsWith('/version.json')||u.pathname.endsWith('/index.html')||u.pathname.endsWith('/production.js')){e.respondWith((async()=>{try{const fresh=await fetch(r,{cache:'no-store'});if(u.origin===self.location.origin){const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{})}return fresh}catch{return(await caches.match(r))||(await caches.match('./index.html'))}})());return}if(u.origin===self.location.origin)e.respondWith((async()=>{const cached=await caches.match(r);const net=fetch(r).then(async fresh=>{const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{});return fresh}).catch(()=>null);return cached||(await net)||Response.error()})())});
