@@ -1,4 +1,4 @@
-const VERSION='1.1.0';
+const VERSION='1.1.1';
 const CACHE=`4w1f-${VERSION}`;
 const SHELL=['./','./index.html','./manifest.webmanifest','./version.json'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}))});

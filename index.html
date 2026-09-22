@@ -78,8 +78,8 @@ button,input,textarea,select{font:inherit}.app{max-width:640px;margin:0 auto;min
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 'use strict';
-const APP_VERSION='1.1.0';
-const BUILD='2026-09-22.1';
+const APP_VERSION='1.1.1';
+const BUILD='2026-09-22.2';
 const STORAGE_KEY='4w1f-state-v11';
 const LEGACY_KEY='4w1f-state';
 
@@ -108,7 +108,7 @@ const seed={
  whatsapp:'',photos:[],audit:['V1.1 gestartet','Steve ist geschützter Owner'],settings:{push:false},app:{lastSeenVersion:APP_VERSION}
 };
 
-let state=loadState();
+let state;
 let page='home';
 let map=null;
 let modalMap=null;
@@ -149,6 +149,7 @@ function loadState(){
  }catch(e){}
  return clone(seed);
 }
+state=loadState();
 function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));updateBadge()}
 function me(){return state.users.find(u=>u.id===state.currentUser)||state.users[0]}
 function isAdmin(){return ['owner','admin'].includes(me().role)}
@@ -313,7 +314,7 @@ function initUpdates(){if(!('serviceWorker'in navigator))return;navigator.servic
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e});
 $('#notifBtn').onclick=showNotifications;$('#profileBtn').onclick=openProfileSwitch;
 setInterval(()=>{if(expireLiveIfNeeded()&&page==='live')render()},30000);
-initUpdates();render();
+try{initUpdates();render()}catch(err){console.error('4W1F startup error',err);const v=document.querySelector('#view');if(v)v.innerHTML='<div style="margin:20px;padding:18px;border:1px solid #5b2a72;border-radius:18px;background:#151019;color:#fff"><b>App konnte nicht vollständig starten.</b><div style="margin-top:8px;color:#aaa">Bitte neu laden. Fehlercode: START-111</div></div>';}
 </script>
 </body>
 </html>
