@@ -7,6 +7,15 @@ const PROD_CACHE_KEY='4w1f-production-cache-v3';
 const REMEMBER_LOGIN_KEY='4w1f-remember-login';
 const SENSITIVE_AUTH_UNTIL_KEY='4w1f-sensitive-auth-until';
 const AUTH_STORAGE_PREFIX='sb-cfogdatapqmurckohvjt-auth-token';
+const CLEAN_RESET_MARKER='4w1f-clean-reset-3.2.4';
+if(localStorage.getItem(CLEAN_RESET_MARKER)!=='1'){
+  ['4w1f-state-v13','4w1f-state-v12','4w1f-state-v11','4w1f-state','4w1f-production-cache-v3','4w1f-pending-invite','4w1f-display-version'].forEach(k=>localStorage.removeItem(k));
+  for(const store of [localStorage,sessionStorage]){
+    for(let i=store.length-1;i>=0;i--){const k=store.key(i);if(k&&k.startsWith('sb-cfogdatapqmurckohvjt-auth-token'))store.removeItem(k)}
+  }
+  localStorage.setItem(CLEAN_RESET_MARKER,'1');
+}
+
 function rememberLoginEnabled(){return localStorage.getItem(REMEMBER_LOGIN_KEY)!=='0'}
 function setRememberLogin(enabled){localStorage.setItem(REMEMBER_LOGIN_KEY,enabled?'1':'0')}
 function authStore(){return rememberLoginEnabled()?localStorage:sessionStorage}
@@ -125,7 +134,7 @@ async function getAccessState(){const {data,error}=await sb.rpc('get_my_access_s
 async function bootstrapAuthenticated(){
   const {data:{session}}=await sb.auth.getSession();prodSession=session;if(!session)return showAuthGate('login');
   let access;try{access=await getAccessState()}catch(e){productionError(e,'Zugriff');return showAuthGate('login','Serververbindung fehlgeschlagen.','bad')}
-  if(!access?.has_profile)return showAuthGate('login','Dieses Login-Konto hat keine aktive Crew-Freigabe. Bitte nutze deinen persönlichen Einladungslink oder wende dich an einen Admin.','bad')
+  if(!access?.has_profile){await sb.auth.signOut({scope:'local'}).catch(()=>{});prodSession=null;return showAuthGate(new URLSearchParams(location.search).has('invite')?'signup':'login')}
   if(!access.active)return showPreviewLocked(access);
   if(!access.can_access)return showPreviewLocked(access);
   setLaunchStatus?.('Crew-Daten werden geladen…');
