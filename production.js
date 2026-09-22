@@ -487,7 +487,7 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   #launchScreen:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.8%,rgba(183,72,255,.10) 50%,transparent 50.2%),repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px);opacity:.42;pointer-events:none}
   #launchScreen .launch-core{width:min(94vw,440px);min-height:650px;padding:46px 22px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
   #launchScreen .launch-core:before{inset:28px 12px 18px;border-color:rgba(178,64,255,.20);box-shadow:0 0 55px rgba(118,31,190,.08),inset 0 0 55px rgba(85,26,142,.05)}
-  #launchScreen .launch-car{display:block!important}
+  #launchScreen .launch-car{display:none!important}
   #launchScreen .launch-crown,#launchScreen .launch-logo,#launchScreen .launch-manifesto,#launchScreen .launch-progress,#launchScreen .launch-status{position:relative;z-index:8;opacity:0;transition:opacity .46s ease,transform .58s cubic-bezier(.16,.86,.22,1)}
   #launchScreen .launch-crown{transform:translateY(14px) scale(.72)}
   #launchScreen .launch-logo{transform:translateY(14px) scale(.95)}
@@ -495,7 +495,7 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   #launchScreen .launch-logo small{margin-top:12px}
   #launchScreen .launch-manifesto{transform:translateY(9px);margin-top:10px}
   #launchScreen .launch-progress,#launchScreen .launch-status{transform:translateY(8px)}
-  .premium-car-stage{position:relative;z-index:6;width:min(84vw,350px);height:220px;margin:-1px auto 2px;opacity:0;transform:translateY(30px) scale(.9);transition:opacity .55s ease,transform .72s cubic-bezier(.16,.9,.2,1);filter:drop-shadow(0 22px 34px rgba(0,0,0,.58))}
+  .premium-car-stage{display:none!important}
   .premium-car-stage:before{content:"";position:absolute;left:50%;bottom:9px;width:74%;height:28px;transform:translateX(-50%);border-radius:50%;background:rgba(174,64,255,.25);filter:blur(18px);opacity:.6;transition:.45s}
   .premium-car-stage:after{content:"";position:absolute;left:50%;bottom:4px;width:95%;height:2px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#8e30ff,#ef4ee2,#8e30ff,transparent);filter:blur(1px);opacity:.28}
   .premium-car-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transform:scale(.97);transition:opacity .5s ease,transform .72s cubic-bezier(.16,.88,.22,1);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 8%,#000 85%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 8%,#000 85%,transparent 100%)}
@@ -557,20 +557,17 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
     launchFX.startedAt=performance.now();launchFX.done=false;launchFX.appReady=false;launchFX.visualDone=false;launchFX.finalText='App bereit';
     launchFX.el=$('#launchScreen');launchFX.bar=$('#launchProgressFill');launchFX.status=$('#launchStatus');
     if(!launchFX.el)return;
-    ensurePremiumCarStage();document.body.classList.add('launch-active');
-    launchFX.el.classList.remove('hidden','p-logo','p-build','p-reveal','p-impact','p-loading');
-    if(launchFX.bar)launchFX.bar.style.width='0%';
-    requestAnimationFrame(()=>{launchFX.el.classList.add('show');setFinalPhase('p-logo','4W1F startet…',0)});
-    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const k=reduced ? .42 : 1;
-    launchTimers.push(setTimeout(()=>setFinalPhase('p-build','Cars · People · Passion · Family',0),Math.round(650*k)));
-    launchTimers.push(setTimeout(()=>setFinalPhase('p-reveal','More than a crew',0),Math.round(1450*k)));
-    launchTimers.push(setTimeout(()=>setFinalPhase('p-impact','4 Wheels. 1 Family.',0),Math.round(2250*k)));
-    launchTimers.push(setTimeout(()=>setFinalPhase('p-loading','Sichere Verbindung…',20),Math.round(3000*k)));
-    launchTimers.push(setTimeout(()=>advanceLaunchProgress(58,'Crew wird synchronisiert…'),Math.round(3380*k)));
-    launchTimers.push(setTimeout(()=>advanceLaunchProgress(86,'Fast bereit…'),Math.round(3720*k)));
-    launchTimers.push(setTimeout(()=>{launchFX.visualDone=true;if(launchFX.appReady)actuallyCloseLaunch(launchFX.finalText)},Math.round(4050*k)));
-    launchTimers.push(setTimeout(()=>actuallyCloseLaunch(launchFX.appReady?launchFX.finalText:'App bereit'),7000));
+    document.body.classList.add('launch-active');
+    launchFX.el.classList.remove('hidden','p-logo','p-build','p-reveal','p-impact','p-loading','phase-reveal','phase-impact','phase-loading');
+    requestAnimationFrame(()=>{
+      launchFX.el.classList.add('show','p-reveal');
+      if(launchFX.status)launchFX.status.textContent='';
+    });
+    launchTimers.push(setTimeout(()=>{
+      launchFX.visualDone=true;
+      if(launchFX.appReady)actuallyCloseLaunch(launchFX.finalText);
+    },900));
+    launchTimers.push(setTimeout(()=>actuallyCloseLaunch(launchFX.appReady?launchFX.finalText:'App bereit'),2600));
   };
   finishLaunchScreen=function(text='App bereit'){launchFX.appReady=true;launchFX.finalText=text||'App bereit';if(launchFX.visualDone)actuallyCloseLaunch(launchFX.finalText)};
 
@@ -626,4 +623,15 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   #launchScreen.p-impact .car-impact{filter:brightness(1.08) saturate(1.14) contrast(1.09) drop-shadow(0 0 20px rgba(183,69,255,.38));opacity:1!important}
   `;
   document.head.appendChild(s);
+})();
+/* 4W1F 3.2.3 release cleanup: short logo-only splash */
+(function(){
+  const st=document.createElement('style');
+  st.textContent=`
+    #launchScreen .launch-car,#launchScreen .premium-car-stage,#launchScreen .launch-progress,#launchScreen .launch-status{display:none!important}
+    #launchScreen .launch-core{min-height:520px!important;padding:34px 20px!important}
+    #launchScreen .launch-crown,#launchScreen .launch-logo,#launchScreen .launch-manifesto{opacity:1!important;transform:none!important}
+    #launchScreen .launch-core:after{display:none!important}
+  `;
+  document.head.appendChild(st);
 })();
