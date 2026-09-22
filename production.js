@@ -538,7 +538,7 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
     const core=document.querySelector('#launchScreen .launch-core');if(!core)return;
     if(core.querySelector('.premium-car-stage'))return;
     const stage=document.createElement('div');stage.className='premium-car-stage';
-    stage.innerHTML='<div class="premium-ray"></div><img class="premium-car-img car-build" src="./assets/launch-car-build.webp" alt=""><img class="premium-car-img car-reveal" src="./assets/launch-car-reveal.webp" alt=""><img class="premium-car-img car-impact" src="./assets/launch-car-impact.webp" alt=""><div class="premium-flare"></div>';
+    stage.innerHTML='<div class="premium-ray"></div><img class="premium-car-img car-build" src="./assets/launch-car-final.webp" alt=""><img class="premium-car-img car-reveal" src="./assets/launch-car-final.webp" alt=""><img class="premium-car-img car-impact" src="./assets/launch-car-final.webp" alt=""><div class="premium-flare"></div>';
     const progress=core.querySelector('.launch-progress');core.insertBefore(stage,progress||null);
   }
   function setFinalPhase(name,status,progress){
@@ -614,4 +614,16 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   renderProfile=function(){previousProfile();setTimeout(decorateProfileMedia,0)};
   const previousAccount=openAccountCenter;
   openAccountCenter=function(){previousAccount();setTimeout(()=>$('#accountSwitch')?.remove(),0)};
+})();
+
+/* 3.2.1 iOS-safe launch asset polish */
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+  .premium-car-img{image-rendering:auto!important;-webkit-transform:translateZ(0);backface-visibility:hidden}
+  #launchScreen.p-build .car-build{filter:brightness(.34) saturate(.65) contrast(1.08);opacity:.48!important}
+  #launchScreen.p-reveal .car-reveal{filter:brightness(.78) saturate(.92) contrast(1.08);opacity:.92!important}
+  #launchScreen.p-impact .car-impact{filter:brightness(1.08) saturate(1.14) contrast(1.09) drop-shadow(0 0 20px rgba(183,69,255,.38));opacity:1!important}
+  `;
+  document.head.appendChild(s);
 })();
