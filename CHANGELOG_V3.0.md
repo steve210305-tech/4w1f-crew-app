@@ -1,0 +1,12 @@
+# V3.0.0 Production
+- echtes Supabase Auth (Invite-only E-Mail + Passwort)
+- serverseitige Rollen/RLS und Owner-Lock
+- Admin-Test-Gate → Owner Crew Release
+- PostgreSQL + Realtime Sync
+- private Supabase Storage Galerie
+- Web Push bei geschlossener installierter PWA
+- stündliche Serverprüfung auf ungelesene Nachrichten, Standard-Reminder max. alle 6h tagsüber
+- echte Invite Links für Admins und Mitglieder
+- Release Feedback
+- kein Fake-Profilwechsel / kein JSON-Restore als Datenquelle
+- vorhandene V2 UI inkl. mobile Events, Live-Startpin, Swipe-Home, funktionale Galerie übernommen

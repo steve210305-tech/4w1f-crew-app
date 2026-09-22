@@ -1,9 +1,42 @@
 {
-  "name": "4 Wheels 1 Family – Crew App",
+  "name": "4 Wheels 1 Family",
   "short_name": "4W1F",
+  "description": "Private 4W1F Crew App – Events, Live, Orte, Galerie, Push und Crew-News.",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#050507",
   "theme_color": "#050507",
-  "description": "Crew-App für 4 Wheels 1 Family"
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Events",
+      "short_name": "Events",
+      "url": "./?page=events"
+    },
+    {
+      "name": "Crew Live",
+      "short_name": "Live",
+      "url": "./?page=live"
+    },
+    {
+      "name": "Galerie",
+      "short_name": "Galerie",
+      "url": "./?page=gallery"
+    }
+  ]
 }
