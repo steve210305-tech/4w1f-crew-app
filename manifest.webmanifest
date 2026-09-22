@@ -1,11 +1,9 @@
 {
   "name": "4 Wheels 1 Family – Crew App",
   "short_name": "4W1F",
-  "description": "Crew-App für 4 Wheels 1 Family",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#050507",
   "theme_color": "#050507",
-  "orientation": "portrait-primary"
+  "description": "Crew-App für 4 Wheels 1 Family"
 }
