@@ -2,5 +2,5 @@
   "version": "3.2.0",
   "build": "2026-09-22.13",
   "published_at": "2026-09-22",
-  "channel": "release-candidate"
+  "channel": "final-release-candidate"
 }
