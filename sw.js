@@ -1,6 +1,6 @@
-const VERSION='1.1.1';
+const VERSION='1.2.0';
 const CACHE=`4w1f-${VERSION}`;
 const SHELL=['./','./index.html','./manifest.webmanifest','./version.json'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}))});
-self.addEventListener('activate',e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('4w1f-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim();const cs=await self.clients.matchAll({type:'window',includeUncontrolled:true});cs.forEach(c=>c.postMessage({type:'SW_ACTIVATED',version:VERSION}))})())});
+self.addEventListener('activate',e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('4w1f-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim()})())});
 self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(r.mode==='navigate'||u.pathname.endsWith('/version.json')||u.pathname.endsWith('/index.html')){e.respondWith((async()=>{try{const fresh=await fetch(r,{cache:'no-store'});const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{});return fresh}catch{return(await caches.match(r))||(await caches.match('./index.html'))}})());return}if(u.origin===self.location.origin)e.respondWith((async()=>{const cached=await caches.match(r);const net=fetch(r).then(async fresh=>{const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{});return fresh}).catch(()=>null);return cached||(await net)||Response.error()})())});
