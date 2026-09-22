@@ -1,4 +1,4 @@
-const VERSION='3.2.2';
+const VERSION='3.2.3';
 const CACHE=`4w1f-${VERSION}`;
 const SHELL=['./','./index.html','./production.js','./manifest.webmanifest','./version.json','./assets/icon-180.png','./assets/icon-192.png','./assets/icon-512.png','./assets/favicon-32.png',];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}))});
