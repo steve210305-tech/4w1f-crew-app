@@ -487,7 +487,7 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   #launchScreen:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.8%,rgba(183,72,255,.10) 50%,transparent 50.2%),repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px);opacity:.42;pointer-events:none}
   #launchScreen .launch-core{width:min(94vw,440px);min-height:650px;padding:46px 22px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
   #launchScreen .launch-core:before{inset:28px 12px 18px;border-color:rgba(178,64,255,.20);box-shadow:0 0 55px rgba(118,31,190,.08),inset 0 0 55px rgba(85,26,142,.05)}
-  #launchScreen .launch-car{display:none!important}
+  #launchScreen .launch-car{display:block!important}
   #launchScreen .launch-crown,#launchScreen .launch-logo,#launchScreen .launch-manifesto,#launchScreen .launch-progress,#launchScreen .launch-status{position:relative;z-index:8;opacity:0;transition:opacity .46s ease,transform .58s cubic-bezier(.16,.86,.22,1)}
   #launchScreen .launch-crown{transform:translateY(14px) scale(.72)}
   #launchScreen .launch-logo{transform:translateY(14px) scale(.95)}
@@ -535,16 +535,16 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   let launchTimers=[];
   function clearFinalLaunch(){launchTimers.forEach(clearTimeout);launchTimers=[]}
   function ensurePremiumCarStage(){
-    const core=document.querySelector('#launchScreen .launch-core');if(!core)return;
-    if(core.querySelector('.premium-car-stage'))return;
-    const stage=document.createElement('div');stage.className='premium-car-stage';
-    stage.innerHTML='<div class="premium-ray"></div><img class="premium-car-img car-build" src="./assets/launch-car-final.webp" alt=""><img class="premium-car-img car-reveal" src="./assets/launch-car-final.webp" alt=""><img class="premium-car-img car-impact" src="./assets/launch-car-final.webp" alt=""><div class="premium-flare"></div>';
-    const progress=core.querySelector('.launch-progress');core.insertBefore(stage,progress||null);
+    /* Final 3.2.2: use the integrated SVG car from index.html; no bitmap-in-a-box overlay. */
   }
   function setFinalPhase(name,status,progress){
     const el=launchFX.el;if(!el)return;
-    ['p-logo','p-build','p-reveal','p-impact','p-loading'].forEach(x=>el.classList.remove(x));
-    el.classList.add(name);if(status)setLaunchStatus(status);if(progress!=null)advanceLaunchProgress(progress);
+    ['p-logo','p-build','p-reveal','p-impact','p-loading','phase-reveal','phase-impact','phase-loading'].forEach(x=>el.classList.remove(x));
+    el.classList.add(name);
+    if(name==='p-reveal')el.classList.add('phase-reveal');
+    if(name==='p-impact')el.classList.add('phase-impact');
+    if(name==='p-loading')el.classList.add('phase-loading');
+    if(status)setLaunchStatus(status);if(progress!=null)advanceLaunchProgress(progress);
   }
   function actuallyCloseLaunch(text='App bereit'){
     if(launchFX.done||!launchFX.el)return;
