@@ -469,3 +469,149 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
   initLaunchScreen=function(){clear();launchFX.startedAt=performance.now();launchFX.done=false;launchFX.appReady=false;launchFX.visualDone=false;launchFX.finalText='App bereit';launchFX.el=$('#launchScreen');launchFX.bar=$('#launchProgressFill');launchFX.status=$('#launchStatus');if(!launchFX.el)return;document.body.classList.add('launch-active');launchFX.el.classList.remove('hidden',...phases);if(launchFX.bar)launchFX.bar.style.width='0%';requestAnimationFrame(()=>{launchFX.el.classList.add('show');setPhase('phase-logo','4W1F startet…',0)});later(420,()=>setPhase('phase-build','Cars · People · Passion · Family',0));later(980,()=>setPhase('phase-reveal','More than a crew',0));later(1660,()=>setPhase('phase-impact','4 Wheels. 1 Family.',0));later(2350,()=>setPhase('phase-loading','Sichere Verbindung…',18));later(2700,()=>advanceLaunchProgress(48,'Crew-Daten werden geladen…'));later(3050,()=>advanceLaunchProgress(78,'Fast bereit…'));later(3450,()=>{launchFX.visualDone=true;if(launchFX.appReady)closeIntro(launchFX.finalText)});later(6200,()=>closeIntro(launchFX.appReady?launchFX.finalText:'App öffnen…'))};
   finishLaunchScreen=function(text='App bereit'){launchFX.appReady=true;launchFX.finalText=text||'App bereit';if(launchFX.visualDone)closeIntro(launchFX.finalText)};
 })();
+
+/* ===== 4W1F 3.2 FINAL RELEASE MODE ===== */
+(function(){
+  const finalStyle=document.createElement('style');
+  finalStyle.id='finalRelease320Style';
+  finalStyle.textContent=`
+  @media(min-width:900px){
+    .app{width:min(1180px,calc(100% - 32px));max-width:none;margin:0 auto}
+    .view{width:100%;max-width:1120px;margin:0 auto}
+    .top{max-width:1120px;margin:0 auto}
+    .bottom{left:50%;right:auto;transform:translateX(-50%);width:min(760px,calc(100% - 28px));border-radius:18px 18px 0 0}
+    .sheet{width:min(720px,calc(100% - 32px))}
+    .admin-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  #launchScreen{background:radial-gradient(circle at 50% 15%,rgba(126,40,255,.24),transparent 30%),radial-gradient(circle at 50% 74%,rgba(185,50,255,.15),transparent 30%),linear-gradient(180deg,#020204 0%,#08050d 55%,#020204 100%)!important}
+  #launchScreen:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 49.8%,rgba(183,72,255,.10) 50%,transparent 50.2%),repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 1px,transparent 1px 4px);opacity:.42;pointer-events:none}
+  #launchScreen .launch-core{width:min(94vw,440px);min-height:650px;padding:46px 22px 28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0}
+  #launchScreen .launch-core:before{inset:28px 12px 18px;border-color:rgba(178,64,255,.20);box-shadow:0 0 55px rgba(118,31,190,.08),inset 0 0 55px rgba(85,26,142,.05)}
+  #launchScreen .launch-car{display:none!important}
+  #launchScreen .launch-crown,#launchScreen .launch-logo,#launchScreen .launch-manifesto,#launchScreen .launch-progress,#launchScreen .launch-status{position:relative;z-index:8;opacity:0;transition:opacity .46s ease,transform .58s cubic-bezier(.16,.86,.22,1)}
+  #launchScreen .launch-crown{transform:translateY(14px) scale(.72)}
+  #launchScreen .launch-logo{transform:translateY(14px) scale(.95)}
+  #launchScreen .launch-logo span,#launchScreen .launch-logo b{font-size:38px}
+  #launchScreen .launch-logo small{margin-top:12px}
+  #launchScreen .launch-manifesto{transform:translateY(9px);margin-top:10px}
+  #launchScreen .launch-progress,#launchScreen .launch-status{transform:translateY(8px)}
+  .premium-car-stage{position:relative;z-index:6;width:min(84vw,350px);height:220px;margin:-1px auto 2px;opacity:0;transform:translateY(30px) scale(.9);transition:opacity .55s ease,transform .72s cubic-bezier(.16,.9,.2,1);filter:drop-shadow(0 22px 34px rgba(0,0,0,.58))}
+  .premium-car-stage:before{content:"";position:absolute;left:50%;bottom:9px;width:74%;height:28px;transform:translateX(-50%);border-radius:50%;background:rgba(174,64,255,.25);filter:blur(18px);opacity:.6;transition:.45s}
+  .premium-car-stage:after{content:"";position:absolute;left:50%;bottom:4px;width:95%;height:2px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,#8e30ff,#ef4ee2,#8e30ff,transparent);filter:blur(1px);opacity:.28}
+  .premium-car-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center;opacity:0;transform:scale(.97);transition:opacity .5s ease,transform .72s cubic-bezier(.16,.88,.22,1);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 8%,#000 85%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 8%,#000 85%,transparent 100%)}
+  .premium-flare{position:absolute;left:50%;top:54%;width:0;height:2px;transform:translate(-50%,-50%);background:#f5c7ff;box-shadow:0 0 14px #d755ff,0 0 36px #942dff;opacity:0;z-index:9}
+  .premium-ray{position:absolute;inset:-70px -90px;background:repeating-conic-gradient(from 0deg,rgba(175,62,255,.23) 0 1deg,transparent 1deg 8deg);opacity:0;transform:scale(.4) rotate(-12deg);z-index:-1;filter:blur(.4px)}
+  #launchScreen.p-logo .launch-logo{opacity:1;transform:none}
+  #launchScreen.p-build .launch-logo,#launchScreen.p-build .launch-manifesto{opacity:1;transform:none}
+  #launchScreen.p-build .premium-car-stage{opacity:1;transform:translateY(8px) scale(.96)}
+  #launchScreen.p-build .car-build{opacity:.92;transform:scale(1)}
+  #launchScreen.p-reveal .launch-logo,#launchScreen.p-reveal .launch-manifesto,#launchScreen.p-reveal .launch-crown{opacity:1;transform:none}
+  #launchScreen.p-reveal .premium-car-stage{opacity:1;transform:none}
+  #launchScreen.p-reveal .car-reveal{opacity:1;transform:scale(1)}
+  #launchScreen.p-impact .launch-logo,#launchScreen.p-impact .launch-manifesto,#launchScreen.p-impact .launch-crown{opacity:1;transform:none}
+  #launchScreen.p-impact .premium-car-stage{opacity:1;transform:scale(1.055)}
+  #launchScreen.p-impact .car-impact{opacity:1;transform:scale(1.03)}
+  #launchScreen.p-impact .premium-ray{animation:premiumFinalRay .72s cubic-bezier(.1,.8,.2,1) both}
+  #launchScreen.p-impact .premium-flare{animation:premiumFinalFlare .66s ease-out both}
+  #launchScreen.p-impact .premium-car-stage:before{opacity:1;transform:translateX(-50%) scale(1.18)}
+  #launchScreen.p-loading .launch-logo,#launchScreen.p-loading .launch-manifesto,#launchScreen.p-loading .launch-crown,#launchScreen.p-loading .launch-progress,#launchScreen.p-loading .launch-status{opacity:1;transform:none}
+  #launchScreen.p-loading .premium-car-stage{opacity:.22;transform:translateY(10px) scale(.94);filter:blur(.2px) brightness(.75)}
+  #launchScreen.p-loading .car-impact{opacity:.68}
+  #launchScreen.p-loading .launch-progress{margin-top:-2px}
+  @keyframes premiumFinalRay{0%{opacity:0;transform:scale(.35) rotate(-12deg)}28%{opacity:.88}100%{opacity:0;transform:scale(1.12) rotate(8deg)}}
+  @keyframes premiumFinalFlare{0%{opacity:0;width:0}35%{opacity:1;width:86%}100%{opacity:0;width:108%}}
+  @media(max-height:760px){#launchScreen .launch-core{min-height:590px;padding-top:30px}.premium-car-stage{height:188px}.launch-logo span,.launch-logo b{font-size:33px!important}}
+  @media(prefers-reduced-motion:reduce){.premium-car-img,.premium-car-stage,#launchScreen .launch-logo,#launchScreen .launch-crown{transition-duration:.12s!important}.premium-ray,.premium-flare{display:none!important}}
+  .profile-media-release{display:grid;grid-template-columns:132px 1fr;gap:13px;align-items:center;padding:14px;margin-bottom:12px}
+  .profile-media-release .profile-photo{width:132px;height:132px;border-radius:22px;overflow:hidden;background:linear-gradient(145deg,rgba(153,48,255,.25),#08080d);border:1px solid rgba(180,75,255,.30);display:grid;place-items:center;font-size:45px;box-shadow:0 0 30px rgba(151,50,255,.09)}
+  .profile-media-release img{width:100%;height:100%;object-fit:cover;display:block}
+  .profile-media-release .media-actions{display:grid;gap:7px}
+  .vehicle-release-photo{width:100%;height:180px;border-radius:14px;overflow:hidden;background:#07070a;border:1px solid var(--line);margin-top:10px;display:grid;place-items:center;color:var(--muted)}
+  .vehicle-release-photo img{width:100%;height:100%;object-fit:cover}
+  @media(max-width:480px){.profile-media-release{grid-template-columns:96px 1fr}.profile-media-release .profile-photo{width:96px;height:96px;border-radius:18px}.vehicle-release-photo{height:155px}}
+  `;
+  document.head.appendChild(finalStyle);
+
+  let launchTimers=[];
+  function clearFinalLaunch(){launchTimers.forEach(clearTimeout);launchTimers=[]}
+  function ensurePremiumCarStage(){
+    const core=document.querySelector('#launchScreen .launch-core');if(!core)return;
+    if(core.querySelector('.premium-car-stage'))return;
+    const stage=document.createElement('div');stage.className='premium-car-stage';
+    stage.innerHTML='<div class="premium-ray"></div><img class="premium-car-img car-build" src="./assets/launch-car-build.webp" alt=""><img class="premium-car-img car-reveal" src="./assets/launch-car-reveal.webp" alt=""><img class="premium-car-img car-impact" src="./assets/launch-car-impact.webp" alt=""><div class="premium-flare"></div>';
+    const progress=core.querySelector('.launch-progress');core.insertBefore(stage,progress||null);
+  }
+  function setFinalPhase(name,status,progress){
+    const el=launchFX.el;if(!el)return;
+    ['p-logo','p-build','p-reveal','p-impact','p-loading'].forEach(x=>el.classList.remove(x));
+    el.classList.add(name);if(status)setLaunchStatus(status);if(progress!=null)advanceLaunchProgress(progress);
+  }
+  function actuallyCloseLaunch(text='App bereit'){
+    if(launchFX.done||!launchFX.el)return;
+    launchFX.done=true;clearFinalLaunch();advanceLaunchProgress(100,text);
+    launchTimers.push(setTimeout(()=>{launchFX.el?.classList.add('hidden');document.body.classList.remove('launch-active')},360));
+    launchTimers.push(setTimeout(()=>launchFX.el?.remove(),1100));
+  }
+  initLaunchScreen=function(){
+    clearFinalLaunch();
+    launchFX.startedAt=performance.now();launchFX.done=false;launchFX.appReady=false;launchFX.visualDone=false;launchFX.finalText='App bereit';
+    launchFX.el=$('#launchScreen');launchFX.bar=$('#launchProgressFill');launchFX.status=$('#launchStatus');
+    if(!launchFX.el)return;
+    ensurePremiumCarStage();document.body.classList.add('launch-active');
+    launchFX.el.classList.remove('hidden','p-logo','p-build','p-reveal','p-impact','p-loading');
+    if(launchFX.bar)launchFX.bar.style.width='0%';
+    requestAnimationFrame(()=>{launchFX.el.classList.add('show');setFinalPhase('p-logo','4W1F startet…',0)});
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const k=reduced ? .42 : 1;
+    launchTimers.push(setTimeout(()=>setFinalPhase('p-build','Cars · People · Passion · Family',0),Math.round(650*k)));
+    launchTimers.push(setTimeout(()=>setFinalPhase('p-reveal','More than a crew',0),Math.round(1450*k)));
+    launchTimers.push(setTimeout(()=>setFinalPhase('p-impact','4 Wheels. 1 Family.',0),Math.round(2250*k)));
+    launchTimers.push(setTimeout(()=>setFinalPhase('p-loading','Sichere Verbindung…',20),Math.round(3000*k)));
+    launchTimers.push(setTimeout(()=>advanceLaunchProgress(58,'Crew wird synchronisiert…'),Math.round(3380*k)));
+    launchTimers.push(setTimeout(()=>advanceLaunchProgress(86,'Fast bereit…'),Math.round(3720*k)));
+    launchTimers.push(setTimeout(()=>{launchFX.visualDone=true;if(launchFX.appReady)actuallyCloseLaunch(launchFX.finalText)},Math.round(4050*k)));
+    launchTimers.push(setTimeout(()=>actuallyCloseLaunch(launchFX.appReady?launchFX.finalText:'App bereit'),7000));
+  };
+  finishLaunchScreen=function(text='App bereit'){launchFX.appReady=true;launchFX.finalText=text||'App bereit';if(launchFX.visualDone)actuallyCloseLaunch(launchFX.finalText)};
+
+  async function mediaUrl(bucket,path){
+    if(!path)return null;
+    try{const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,3600);if(error)throw error;return data?.signedUrl||null}catch{return null}
+  }
+  async function uploadProfileMedia(kind,file){
+    if(!file||!/^image\/(jpeg|png|webp)$/i.test(file.type)||file.size>12*1024*1024)return toast('JPEG, PNG oder WebP bis 12 MB');
+    try{
+      toast('Bild wird sicher verarbeitet…');
+      const safe=await sanitizeImageFile(file),uid=prodSession.user.id;
+      if(kind==='avatar'){
+        const path=`${uid}/avatar.webp`;
+        await checked(sb.storage.from('avatars').upload(path,safe,{contentType:'image/webp',upsert:true}),'Profilbild');
+        await checked(sb.from('profiles').update({avatar_path:path}).eq('id',uid),'Profilbild');
+      }else{
+        const path=`${uid}/vehicle-profile.webp`;
+        await checked(sb.storage.from('crew-media').upload(path,safe,{contentType:'image/webp',upsert:true}),'Fahrzeugbild');
+        await checked(sb.from('vehicles').upsert({user_id:uid,photo_path:path},{onConflict:'user_id'}),'Fahrzeugbild');
+      }
+      await loadServerState();renderProfile();toast(kind==='avatar'?'Profilbild gespeichert':'Fahrzeugbild gespeichert');
+    }catch(e){productionError(e,'Bild');toast('Bild konnte nicht gespeichert werden')}
+  }
+  async function decorateProfileMedia(){
+    if(page!=='profile'||!prodSession)return;
+    const view=$('#view');if(!view||$('#profileMediaRelease'))return;
+    const u=me(),v=u._vehicle||{};
+    const wrap=document.createElement('section');wrap.className='card profile-media-release';wrap.id='profileMediaRelease';
+    wrap.innerHTML=`<div class="profile-photo" id="releaseAvatar">${u.emoji||'🚗'}</div><div class="media-actions"><b>${esc(u.name)}</b><span class="muted tiny">${roleLabel(u.role)} · ${esc(u.car||'Noch kein Fahrzeug')}</span><button class="btn outline sm" id="changeAvatar">Profilbild ändern</button><button class="btn outline sm" id="changeVehiclePhoto">Fahrzeugbild ändern</button><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="avatarFile"><input hidden type="file" accept="image/jpeg,image/png,image/webp" id="vehicleFile"></div>`;
+    const title=view.querySelector('.page-title');if(title)title.insertAdjacentElement('afterend',wrap);else view.prepend(wrap);
+    $('#changeAvatar').onclick=()=>$('#avatarFile').click();$('#changeVehiclePhoto').onclick=()=>$('#vehicleFile').click();
+    $('#avatarFile').onchange=e=>uploadProfileMedia('avatar',e.target.files?.[0]);$('#vehicleFile').onchange=e=>uploadProfileMedia('vehicle',e.target.files?.[0]);
+    const au=await mediaUrl('avatars',u._avatarPath);if(au&&$('#releaseAvatar'))$('#releaseAvatar').innerHTML=`<img src="${au}" alt="">`;
+    if(v.photo_path){
+      const cards=[...view.querySelectorAll('.card')];const vehicleCard=cards.find(x=>x.textContent.includes(u.car||'__never__'));
+      if(vehicleCard&&!$('#releaseVehiclePhoto')){const vp=document.createElement('div');vp.className='vehicle-release-photo';vp.id='releaseVehiclePhoto';vp.textContent='Fahrzeugbild wird geladen…';vehicleCard.appendChild(vp);const vu=await mediaUrl('crew-media',v.photo_path);if(vu&&$('#releaseVehiclePhoto'))$('#releaseVehiclePhoto').innerHTML=`<img src="${vu}" alt="">`;}
+    }
+  }
+  const previousProfile=renderProfile;
+  renderProfile=function(){previousProfile();setTimeout(decorateProfileMedia,0)};
+  const previousAccount=openAccountCenter;
+  openAccountCenter=function(){previousAccount();setTimeout(()=>$('#accountSwitch')?.remove(),0)};
+})();
