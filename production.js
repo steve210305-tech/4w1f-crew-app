@@ -458,3 +458,78 @@ openSecurityCenter=function(){openModal('Sicherheit',`<div class="card pad">
 
 const _renderAdmin31=renderAdmin;
 renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite){const b=invite.querySelector('b');const s=invite.querySelector('span');if(b)b.textContent='Einladungen';if(s)s.textContent='Mitglieder & Admins sicher einladen'}};
+
+
+/* ===== 4W1F 3.1.1 premium launch sequence fix ===== */
+(function(){
+  const css=`
+  #launchScreen .launch-logo,#launchScreen .launch-crown,#launchScreen .launch-car,#launchScreen .launch-manifesto,#launchScreen .launch-progress,#launchScreen .launch-status{opacity:0!important;transition:opacity .42s ease,transform .55s cubic-bezier(.18,.9,.25,1)!important;animation:none!important}
+  #launchScreen .launch-logo{transform:translateY(16px) scale(.96)!important}
+  #launchScreen .launch-crown{transform:translateY(12px) scale(.72)!important}
+  #launchScreen .launch-car{transform:translateY(32px) scale(.90)!important}
+  #launchScreen .launch-manifesto,#launchScreen .launch-progress,#launchScreen .launch-status{transform:translateY(8px)!important}
+  #launchScreen .launch-smoke{opacity:0;transition:opacity .75s ease}
+  #launchScreen.phase-logo .launch-logo,
+  #launchScreen.phase-build .launch-logo,#launchScreen.phase-build .launch-manifesto,
+  #launchScreen.phase-reveal .launch-logo,#launchScreen.phase-reveal .launch-manifesto,#launchScreen.phase-reveal .launch-crown,#launchScreen.phase-reveal .launch-car,
+  #launchScreen.phase-impact .launch-logo,#launchScreen.phase-impact .launch-manifesto,#launchScreen.phase-impact .launch-crown,#launchScreen.phase-impact .launch-car,
+  #launchScreen.phase-loading .launch-logo,#launchScreen.phase-loading .launch-manifesto,#launchScreen.phase-loading .launch-crown,#launchScreen.phase-loading .launch-car,#launchScreen.phase-loading .launch-progress,#launchScreen.phase-loading .launch-status{
+    opacity:1!important;transform:none!important
+  }
+  #launchScreen.phase-build .launch-smoke,#launchScreen.phase-reveal .launch-smoke,#launchScreen.phase-impact .launch-smoke,#launchScreen.phase-loading .launch-smoke{opacity:1}
+  #launchScreen.phase-build .launch-car{opacity:.28!important;transform:translateY(18px) scale(.93)!important}
+  #launchScreen.phase-impact .launch-car{filter:drop-shadow(0 0 34px rgba(180,69,255,.36)) brightness(1.12)}
+  #launchScreen.phase-impact .headlight{animation:premiumHeadlight .55s ease-out 1!important}
+  #launchScreen.phase-impact .launch-core:after{animation:premiumImpact .8s cubic-bezier(.15,.85,.2,1) 1!important}
+  #launchScreen.phase-impact:after{animation:premiumFloorHit .8s ease-out 1!important}
+  @keyframes premiumHeadlight{0%{opacity:.25;filter:brightness(.5)}35%{opacity:1;filter:brightness(2.3)}100%{opacity:1;filter:brightness(1)}}
+  @keyframes premiumImpact{0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(-10deg)}35%{opacity:.85}100%{opacity:0;transform:translate(-50%,-50%) scale(1.25) rotate(8deg)}}
+  @keyframes premiumFloorHit{0%{opacity:.2;transform:translateX(-50%) scale(.75)}45%{opacity:1;transform:translateX(-50%) scale(1.25)}100%{opacity:.55;transform:translateX(-50%) scale(1)}}
+  #launchScreen.phase-loading .launch-progress i{transition:width .55s cubic-bezier(.2,.8,.25,1)!important}
+  `;
+  const style=document.createElement('style');style.id='launchFix311';style.textContent=css;document.head.appendChild(style);
+
+  let seqTimers=[];
+  function clearLaunchTimers(){seqTimers.forEach(clearTimeout);seqTimers=[]}
+  function phase(name,status,progress){
+    const el=launchFX.el;if(!el)return;
+    el.classList.remove('phase-logo','phase-build','phase-reveal','phase-impact','phase-loading');
+    el.classList.add(name);
+    if(status)setLaunchStatus(status);
+    if(progress!=null)advanceLaunchProgress(progress);
+  }
+  function closeLaunch311(text='App bereit'){
+    if(launchFX.done||!launchFX.el)return;
+    launchFX.done=true;clearLaunchTimers();advanceLaunchProgress(100,text);
+    seqTimers.push(setTimeout(()=>{launchFX.el?.classList.add('hidden');document.body.classList.remove('launch-active')},320));
+    seqTimers.push(setTimeout(()=>launchFX.el?.remove(),1050));
+  }
+
+  initLaunchScreen=function(){
+    clearLaunchTimers();
+    launchFX.startedAt=performance.now();launchFX.done=false;launchFX.appReady=false;launchFX.visualDone=false;launchFX.finalText='App bereit';
+    launchFX.el=$('#launchScreen');launchFX.bar=$('#launchProgressFill');launchFX.status=$('#launchStatus');
+    if(!launchFX.el)return;
+    document.body.classList.add('launch-active');
+    launchFX.el.classList.remove('hidden','phase-logo','phase-build','phase-reveal','phase-impact','phase-loading');
+    if(launchFX.bar)launchFX.bar.style.width='0%';
+    setLaunchStatus('4W1F startet…');
+    requestAnimationFrame(()=>{launchFX.el.classList.add('show');phase('phase-logo','4W1F startet…',0)});
+    seqTimers.push(setTimeout(()=>phase('phase-build','Crew wird geladen…',0),520));
+    seqTimers.push(setTimeout(()=>phase('phase-reveal','More than a crew',0),1120));
+    seqTimers.push(setTimeout(()=>phase('phase-impact','4 Wheels. 1 Family.',0),1680));
+    seqTimers.push(setTimeout(()=>phase('phase-loading','Verbindung wird hergestellt…',22),2250));
+    seqTimers.push(setTimeout(()=>advanceLaunchProgress(58,'Crew-Daten werden geladen…'),2630));
+    seqTimers.push(setTimeout(()=>advanceLaunchProgress(82,'Fast bereit…'),3000));
+    seqTimers.push(setTimeout(()=>{
+      launchFX.visualDone=true;
+      if(launchFX.appReady)closeLaunch311(launchFX.finalText);
+    },3380));
+    seqTimers.push(setTimeout(()=>closeLaunch311(launchFX.appReady?launchFX.finalText:'App öffnen…'),6500));
+  };
+
+  finishLaunchScreen=function(text='App bereit'){
+    launchFX.appReady=true;launchFX.finalText=text||'App bereit';
+    if(launchFX.visualDone)closeLaunch311(launchFX.finalText);
+  };
+})();
