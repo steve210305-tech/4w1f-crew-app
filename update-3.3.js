@@ -101,6 +101,8 @@
       const a=$('#avatarFile'),v=$('#vehicleFile');
       if(a){a.onchange=e=>{const f=e.target.files?.[0];if(f)uploadPrimaryMedia('avatar',f);e.target.value=''}}
       if(v){v.onchange=e=>{const f=e.target.files?.[0];if(f)uploadPrimaryMedia('vehicle',f);e.target.value=''}}
+      const actions=$('#profileMediaRelease .media-actions');
+      if(actions&&!$('#profileExtraPhotos')){const label=document.createElement('label');label.className='btn primary sm';label.innerHTML='Weitere Bilder hinzufügen<input hidden multiple type="file" accept="image/jpeg,image/png,image/webp" id="profileExtraPhotos">';actions.appendChild(label);$('#profileExtraPhotos').onchange=e=>{const files=e.target.files;if(files?.length)handlePhotos(files);e.target.value=''}}
     },50);
   }
   const previousRenderProfile=renderProfile;
