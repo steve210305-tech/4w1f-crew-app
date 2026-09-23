@@ -133,3 +133,48 @@
   };
 
   // 3) Owner role + label control.
+  openMemberAdmin=async function(id){
+    const u=state.users.find(x=>x.id===id);if(!u)return;
+    if(u.role==='owner')return openModal(u.name,'<div class="notice">🔒 Der Owner-Account ist gegen Herabstufung und Löschung geschützt.</div>');
+    let labels=[...(u.labels||[])];
+    openModal(u.name,`<div class="field"><label>Rolle</label><select id="roleSel" ${isOwner()?'':'disabled'}><option value="member" ${u.role==='member'?'selected':''}>Mitglied</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></div><div class="field"><label>Funktions-Labels</label><div class="chips" id="labelChoices">${(state.customLabels||[]).map(l=>`<button class="chip ${labels.includes(l)?'active':''}" type="button" data-label="${esc(l)}">${esc(l)}</button>`).join('')}</div></div>${isOwner()?'<button class="btn primary wide" id="saveMemberRole">Rolle & Labels speichern</button>':'<div class="notice">Nur der Owner darf Rollen und Funktions-Labels verändern.</div>'}`,()=>{
+      if(!isOwner())return;
+      $$('[data-label]').forEach(b=>b.onclick=()=>{const l=b.dataset.label;labels=labels.includes(l)?labels.filter(x=>x!==l):[...labels,l];b.classList.toggle('active')});
+      $('#saveMemberRole').onclick=async()=>{if(!await requireSensitiveAuth('Rollen- oder Rechteänderungen'))return;const role=$('#roleSel').value;if(role!==u.role&&!confirm(`${u.name} wirklich auf ${roleLabel(role)} setzen?`))return;const {error}=await sb.from('profiles').update({role,labels}).eq('id',u.id);if(error)return toast(error.message);closeModal();await loadServerState();openOwnerControl();toast('Rolle & Labels gespeichert')};
+    });
+  };
+
+  openOwnerControl=function(){
+    const rows=state.users.map(u=>`<div class="card pad"><div class="project-manage-row"><div><b>${esc(u.name)}</b><div class="muted tiny">${roleLabel(u.role)}${(u.labels||[]).length?' · '+u.labels.map(esc).join(' · '):''}</div></div>${u.role==='owner'?'<span class="label owner">OWNER</span>':`<button class="btn outline sm" data-owner-user="${u.id}">Verwalten</button>`}</div></div>`).join('');
+    openModal('Owner Control',`<div class="notice">Rollen und Funktions-Labels werden serverseitig gespeichert. Dein Owner-Account bleibt geschützt.</div><div class="section"><div class="sectionhead"><h2>Mitglieder & Rollen</h2></div><div class="list">${rows}</div></div><div class="field"><label>Neues Funktions-Label</label><input id="newLabel" placeholder="z. B. Tourleitung"></div><button class="btn primary wide" id="addLabel">Label hinzufügen</button>`,()=>{
+      $$('[data-owner-user]').forEach(b=>b.onclick=()=>{closeModal();openMemberAdmin(b.dataset.ownerUser)});
+      $('#addLabel').onclick=async()=>{const v=$('#newLabel').value.trim();if(!v||state.customLabels.includes(v))return toast('Label existiert bereits oder ist leer');state.customLabels.push(v);const {error}=await sb.from('crew_settings').update({custom_labels:state.customLabels}).eq('id',1);if(error)return toast(error.message);closeModal();await loadServerState();openOwnerControl()};
+    });
+  };
+
+  // 4) Social drafts, prepared for later Meta API connection.
+  async function saveSocialDraft(id=null){
+    const caption=$('#socialCaption')?.value.trim()||'',hash=($('#socialHashtags')?.value||'').split(/\s+/).map(x=>x.trim()).filter(Boolean).map(x=>x.startsWith('#')?x:'#'+x),mediaIds=$$('#socialMediaPicker input:checked').map(x=>x.value);
+    const row={created_by:prodSession.user.id,caption,hashtags:hash,media_ids:mediaIds,status:'draft'};
+    const q=id?sb.from('social_drafts').update(row).eq('id',id):sb.from('social_drafts').insert(row);const {error}=await q;if(error)return toast(error.message);toast('Instagram-Entwurf gespeichert');closeModal();openSocialStudio();
+  }
+  async function openSocialDraftEditor(draft=null){
+    const visible=(state.photos||[]).filter(p=>p.galleryVisible!==false&&p.approved!==false).slice(0,18),selected=new Set(draft?.media_ids||[]);
+    openModal(draft?'Entwurf bearbeiten':'Instagram vorbereiten',`<div class="field"><label>Caption</label><textarea id="socialCaption">${esc(draft?.caption||'')}</textarea></div><div class="field"><label>Hashtags</label><input id="socialHashtags" value="${esc((draft?.hashtags||['#4Wheels1Family']).join(' '))}" placeholder="#4Wheels1Family #NightDrive"></div><div class="field"><label>Medien auswählen</label><div class="social-media-picker" id="socialMediaPicker">${visible.map(p=>`<label><img src="${p.data}" alt="${esc(p.label||'Foto')}"><input type="checkbox" value="${p.id}" ${selected.has(p.id)?'checked':''}></label>`).join('')||'<div class="notice" style="grid-column:1/-1">Noch keine Galerie-Bilder verfügbar.</div>'}</div></div><div class="actions"><button class="btn primary" id="saveSocialDraft">Entwurf speichern</button><button class="btn outline" id="prepareSocial">Für Instagram vorbereiten</button></div><button class="btn outline wide" disabled title="Meta-Verbindung noch nicht eingerichtet">Direkt posten · Meta nicht verbunden</button><div class="notice">Der Entwurf ist bereits so strukturiert, dass später die offizielle Meta/Instagram-Schnittstelle angebunden werden kann. Bis dahin wird kein Fake-Posting ausgelöst.</div>`,()=>{
+      $('#saveSocialDraft').onclick=()=>saveSocialDraft(draft?.id||null);$('#prepareSocial').onclick=async()=>{await saveSocialDraft(draft?.id||null);};
+    });
+  }
+  openSocialStudio=async function(){
+    const {data,error}=await sb.from('social_drafts').select('*').order('updated_at',{ascending:false});if(error)return toast(error.message);
+    openModal('Social Media Studio',`<div class="notice">Instagram-Verbindung: <b>noch nicht gekoppelt</b>. Entwürfe können aber vollständig vorbereitet werden.</div><button class="btn primary wide" id="newSocialDraft" style="margin-top:10px">+ Neuer Instagram-Entwurf</button><div class="section"><div class="sectionhead"><h2>Entwürfe</h2></div><div class="list">${(data||[]).map(d=>`<button class="card ticket-row clickable" data-social-draft="${d.id}"><div class="ticket-top"><b>${esc((d.caption||'Ohne Caption').slice(0,54))}</b><span class="muted tiny">${fmtAgo(d.updated_at)}</span></div><div class="muted tiny">${(d.hashtags||[]).map(esc).join(' ')||'Keine Hashtags'} · ${(d.media_ids||[]).length} Medien</div></button>`).join('')||'<div class="notice">Noch keine Entwürfe.</div>'}</div></div>`,()=>{$('#newSocialDraft').onclick=()=>{closeModal();openSocialDraftEditor()};$$('[data-social-draft]').forEach(b=>b.onclick=()=>{const d=(data||[]).find(x=>x.id===b.dataset.socialDraft);closeModal();openSocialDraftEditor(d)})});
+  };
+
+  // 5) Life360-style live map + more robust refresh.
+  const previousSaveLiveMeta=saveLiveMeta;
+  saveLiveMeta=async function(pos){
+    state.live.expiresAt=Date.now()+45*60000;
+    await previousSaveLiveMeta(pos);
+  };
+  async function liveAvatarHtml(u,own=false){const url=await signedUrl('avatars',u?._avatarPath,900);return url?`<div class="life-pin ${own?'me':''}"><img src="${url}" alt=""></div>`:`<div class="life-pin ${own?'me':''}">${esc((u?.name||'?').slice(0,1).toUpperCase())}</div>`}
+  async function renderLifeMarkers(){
+    if(page!=='live'||!map)return;
