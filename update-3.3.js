@@ -88,3 +88,48 @@
   async function uploadPrimaryMedia(kind,file){
     if(!file||!/^image\/(jpeg|png|webp)$/i.test(file.type)||file.size>12*1024*1024)return toast('JPEG, PNG oder WebP bis 12 MB');
     openModal(kind==='avatar'?'Profilbild speichern':'Fahrzeugbild speichern',`
+      <div class="media-choice"><label><input type="checkbox" id="primaryGallery"><span><b>Zusätzlich in Crew-Galerie veröffentlichen</b><br><span class="muted tiny">Das Hauptbild selbst bleibt natürlich im Profil sichtbar.</span></span></label></div>
+      <button class="btn primary wide" id="primarySave">Bild speichern</button>`,()=>{
+      $('#primarySave').onclick=async()=>{const addGallery=$('#primaryGallery').checked;try{const safe=await sanitizeImageFile(file),uid=prodSession.user.id;if(kind==='avatar'){const path=`${uid}/avatar.webp`;await checked(sb.storage.from('avatars').upload(path,safe,{contentType:'image/webp',upsert:true}),'Profilbild');await checked(sb.from('profiles').update({avatar_path:path}).eq('id',uid),'Profilbild');if(addGallery){const gp=`${uid}/profile/${uuid()}.webp`;await checked(sb.storage.from('crew-media').upload(gp,safe,{contentType:'image/webp'}),'Galerie');await checked(sb.from('gallery_items').insert({uploader_id:uid,category:'crew',storage_path:gp,caption:'Profilbild',approved:true,sanitized:true,profile_visible:true,gallery_visible:true}),'Galerie')}}else{const path=`${uid}/vehicle-profile.webp`;await checked(sb.storage.from('crew-media').upload(path,safe,{contentType:'image/webp',upsert:true}),'Fahrzeugbild');await checked(sb.from('vehicles').upsert({user_id:uid,photo_path:path},{onConflict:'user_id'}),'Fahrzeugbild');if(addGallery)await checked(sb.from('gallery_items').insert({uploader_id:uid,category:'vehicle',storage_path:path,caption:'Fahrzeug',approved:true,sanitized:true,profile_visible:true,gallery_visible:true}),'Galerie')}closeModal();await loadServerState();renderProfile();toast('Bild gespeichert')}catch(e){productionError(e,'Bild');toast('Bild konnte nicht gespeichert werden')}};
+    });
+  }
+
+  function wirePrimaryMediaOptions(){
+    setTimeout(()=>{
+      const a=$('#avatarFile'),v=$('#vehicleFile');
+      if(a){a.onchange=e=>{const f=e.target.files?.[0];if(f)uploadPrimaryMedia('avatar',f);e.target.value=''}}
+      if(v){v.onchange=e=>{const f=e.target.files?.[0];if(f)uploadPrimaryMedia('vehicle',f);e.target.value=''}}
+    },50);
+  }
+  const previousRenderProfile=renderProfile;
+  renderProfile=function(){previousRenderProfile();wirePrimaryMediaOptions();setTimeout(()=>{const grid=$('#view .admin-grid');if(grid&&!$('#profileSupport')){const b=document.createElement('button');b.className='card admin-tool clickable';b.id='profileSupport';b.innerHTML=`${I('bell')}<div><b>Support</b><br><span>Tickets & direkte Hilfe</span></div>`;grid.appendChild(b);b.onclick=openSupportCenter}},0)};
+
+  // 2) Instagram-style member profile.
+  async function openMemberSocialProfile(id){
+    const u=state.users.find(x=>x.id===id);if(!u)return;
+    openModal(u.name,'<div class="notice">Profil wird geladen…</div>');
+    const v=u._vehicle||{};
+    const photos=(state.photos||[]).filter(p=>p.uploaderId===u.id&&p.profileVisible&&p.approved!==false);
+    const [avatarUrl,vehicleUrl]=await Promise.all([signedUrl('avatars',u._avatarPath),signedUrl('crew-media',v.photo_path)]);
+    const photoGrid=photos.map((p,i)=>`<button type="button" data-profile-photo="${i}" aria-label="${esc(p.label||'Foto öffnen')}"><img src="${p.data}" alt="${esc(p.label||'Crew Foto')}"></button>`).join('');
+    openModal(u.name,`<div class="member-social">
+      <div class="member-social-head"><div class="member-social-avatar">${avatarUrl?`<img src="${avatarUrl}" alt="Profilbild von ${esc(u.name)}">`:(u.emoji||'🚗')}</div><div class="member-social-meta"><div class="eyebrow">${roleLabel(u.role)}</div><h3>${esc(u.name)}</h3><div class="muted small">${esc(u.ig||'Kein Instagram-Handle')}</div><div class="member-tags" style="margin-top:7px">${(u.labels||[]).map(l=>`<span class="label function">${esc(l)}</span>`).join('')}</div></div></div>
+      <div class="member-social-stats"><div><b>${photos.length}</b><span>PROFILFOTOS</span></div><div><b>${v.power_ps||'—'}</b><span>PS</span></div><div><b>${formatJoined(u.joinedAt)}</b><span>DABEI SEIT</span></div></div>
+      <div class="card pad"><div class="eyebrow">Über mich</div><p class="small" style="line-height:1.6;margin-bottom:0">${esc(u.bio||'Noch keine Beschreibung hinterlegt.')}</p></div>
+      <div class="card member-vehicle"><div class="member-vehicle-photo">${vehicleUrl?`<img src="${vehicleUrl}" alt="Fahrzeug von ${esc(u.name)}">`:'Noch kein Fahrzeugbild'}</div><div class="member-vehicle-body"><div class="eyebrow">Fahrzeug</div><h3 style="margin:5px 0">${esc([v.make,v.model].filter(Boolean).join(' ')||u.car||'Noch kein Fahrzeug')}</h3><div class="muted small">${v.year?`Baujahr ${v.year}`:''}${v.power_ps?` · ${v.power_ps} PS`:''}</div>${v.description?`<p class="small" style="line-height:1.55">${esc(v.description)}</p>`:''}${(v.mods||[]).length?`<div class="chips">${v.mods.map(m=>`<span class="chip active">${esc(m)}</span>`).join('')}</div>`:''}</div></div>
+      <div><div class="sectionhead"><h2>Profilbilder</h2></div><div class="member-photo-grid">${photoGrid||'<div class="notice" style="grid-column:1/-1">Noch keine Bilder für das Profil freigegeben.</div>'}</div></div>
+      ${u.id===me().id?'<button class="btn primary wide" id="socialEditOwn">Profil bearbeiten</button>':''}
+    </div>`,()=>{
+      $$('[data-profile-photo]').forEach(b=>b.onclick=()=>openPhotoViewer({src:photos[Number(b.dataset.profilePhoto)]?.data,label:photos[Number(b.dataset.profilePhoto)]?.label||'Profilfoto',kind:photos[Number(b.dataset.profilePhoto)]?.kind||'crew'}));
+      $('#socialEditOwn')?.addEventListener('click',()=>{closeModal();openProfileEditor()});
+    });
+  }
+  openMemberDetail=function(id){openMemberSocialProfile(id)};
+
+  // Gallery only shows items explicitly published to it.
+  const baseRenderGallery=renderGallery;
+  renderGallery=function(){
+    const all=state.photos||[];state.photos=all.filter(p=>p.galleryVisible!==false&&p.approved!==false);try{baseRenderGallery()}finally{state.photos=all}
+  };
+
+  // 3) Owner role + label control.
