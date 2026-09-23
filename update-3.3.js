@@ -3,7 +3,7 @@
   'use strict';
   const RELEASE_VERSION='3.3.0';
   const RELEASE_BUILD='2026-09-23.1';
-  let liveRefreshTimer=null,liveMarkerLayer=null;
+  let liveRefreshTimer=null,liveMarkerLayer=null,extraRealtime=null;
   let openSupportCenter;
 
   const style=document.createElement('style');
@@ -48,9 +48,10 @@
   const previousSubscribeRealtime=subscribeRealtime;
   subscribeRealtime=function(){
     previousSubscribeRealtime();
-    try{
-      ['support_tickets','support_messages','support_ticket_reads','social_drafts','update_releases'].forEach(t=>realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh()));
-    }catch{}
+    try{extraRealtime?.unsubscribe()}catch{}
+    extraRealtime=sb.channel('4w1f-production-330');
+    ['support_tickets','support_messages','support_ticket_reads','social_drafts','update_releases'].forEach(t=>extraRealtime.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh()));
+    extraRealtime.subscribe();
   };
 
   const previousUpdateBadge=updateBadge;
@@ -247,6 +248,11 @@
 
   const previousRender330=render;
   render=function(){if(page!=='live'&&liveRefreshTimer){clearInterval(liveRefreshTimer);liveRefreshTimer=null;liveMarkerLayer=null}previousRender330()};
+
+  const previousLogout330=logoutApp;
+  logoutApp=async function(){try{extraRealtime?.unsubscribe()}catch{}extraRealtime=null;return previousLogout330()};
+  const previousLogoutAll330=logoutEverywhere;
+  logoutEverywhere=async function(){try{extraRealtime?.unsubscribe()}catch{}extraRealtime=null;return previousLogoutAll330()};
 
   // Wrap authenticated bootstrap so support deep links and release notes open after the app is ready.
   const previousBootstrapAuthenticated=bootstrapAuthenticated;
