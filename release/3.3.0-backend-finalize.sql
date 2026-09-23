@@ -1,6 +1,17 @@
 -- 4W1F 3.3.0 final backend step.
 -- Apply immediately before merging the prepared app branch.
 
+drop policy if exists gallery_read on public.gallery_items;
+create policy gallery_read on public.gallery_items
+for select to authenticated
+using (
+  private.can_access_app()
+  and (
+    uploader_id=(select auth.uid())
+    or (approved=true and (gallery_visible=true or profile_visible=true))
+  )
+);
+
 create index if not exists support_tickets_created_by_idx on public.support_tickets(created_by);
 create index if not exists support_tickets_assigned_to_idx on public.support_tickets(assigned_to);
 create index if not exists support_tickets_channel_updated_idx on public.support_tickets(channel,updated_at desc);
