@@ -25,12 +25,12 @@ create or replace function public.set_4w1f_updated_at()
 returns trigger
 language plpgsql
 set search_path=public
-as $
+as $func$
 begin
   new.updated_at=now();
   return new;
 end;
-$;
+$func$;
 
 insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
 values ('support-media','support-media',false,12582912,array['image/jpeg','image/png','image/webp'])
