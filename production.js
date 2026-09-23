@@ -25,6 +25,8 @@ const authStorage={
   setItem(key,value){authStore().setItem(key,value);altAuthStore().removeItem(key)},
   removeItem(key){localStorage.removeItem(key);sessionStorage.removeItem(key)}
 };
+const AUTH_RECOVERY_HINT=(()=>{try{const h=new URLSearchParams(location.hash.replace(/^#/,'')).get('type'),q=new URLSearchParams(location.search).get('type');return h==='recovery'||q==='recovery'}catch{return false}})();
+let recoveryMode=AUTH_RECOVERY_HINT;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:authStorage}});
 let prodSession=null,serverLoaded=false,serverSyncing=false,syncTimer=null,realtimeChannel=null,realtimeRefreshTimer=null,lastSyncError='';
 
@@ -110,8 +112,10 @@ async function forgotPassword(){
   showAuthGate('login',error?error.message:'Passwort-Mail wurde versendet. Öffne den Link und kehre zur App zurück.',error?'bad':'ok');
 }
 function showPasswordReset(){
-  document.body.classList.add('auth-mode');$('#view').innerHTML=`<div class="auth-shell"><div class="auth-card"><div class="auth-brand">NEUES <span>PASSWORT</span></div><div class="field"><label>Neues Passwort</label><input id="newPassword" type="password" autocomplete="new-password" placeholder="Mindestens 10 Zeichen"></div><button class="btn primary wide" id="saveNewPassword">Speichern</button></div></div>`;
-  $('#saveNewPassword').onclick=async()=>{const p=$('#newPassword').value;if(p.length<8)return toast('Mindestens 8 Zeichen');const {error}=await sb.auth.updateUser({password:p});if(error)return toast(error.message);markSensitiveAuth();toast('Passwort geändert');await bootstrapAuthenticated()}
+  recoveryMode=true;
+  document.body.classList.add('auth-mode');$('#view').innerHTML=`<div class="auth-shell"><div class="auth-card"><div class="server-pill"><i></i>PASSWORT-WIEDERHERSTELLUNG</div><div class="auth-brand">NEUES <span>PASSWORT</span></div><div class="auth-sub">Lege jetzt ein neues Passwort für dein 4W1F-Konto fest.</div><div class="field"><label>Neues Passwort</label><input id="newPassword" type="password" autocomplete="new-password" placeholder="Mindestens 10 Zeichen"></div><button class="btn primary wide" id="saveNewPassword">Neues Passwort speichern</button></div></div>`;
+  finishLaunchScreen?.('Passwort zurücksetzen');
+  $('#saveNewPassword').onclick=async()=>{const p=$('#newPassword').value;if(p.length<10)return toast('Mindestens 10 Zeichen');const {error}=await sb.auth.updateUser({password:p});if(error)return toast(error.message);recoveryMode=false;markSensitiveAuth();try{history.replaceState(null,'',cleanBaseUrl())}catch{}toast('Passwort geändert ✓');await bootstrapAuthenticated()}
 }
 async function finishInviteClaim(){
   const p=pendingInvite();if(!p?.code)return false;
@@ -260,8 +264,15 @@ countVehicles=function(){return state.users.filter(u=>u._active!==false&&u.car).
 recentMembers=function(){return [...state.users].filter(u=>u._active!==false).sort((a,b)=>String(b.joinedAt||'').localeCompare(String(a.joinedAt||''))).slice(0,4)};
 window.bootstrapProduction=async function(){
   initLaunchScreen?.();initVisualFX();initUpdates();setLaunchStatus?.('Sichere Verbindung…');
-  sb.auth.onAuthStateChange((event,session)=>{prodSession=session;if(event==='PASSWORD_RECOVERY')setTimeout(showPasswordReset,0);if(event==='SIGNED_OUT')setTimeout(()=>showAuthGate('login'),0)});
-  try{const {data:{session}}=await sb.auth.getSession();prodSession=session;if(!session){setLaunchStatus?.('Login wird geöffnet…');return showAuthGate(new URLSearchParams(location.search).has('invite')?'signup':'login')}await bootstrapAuthenticated()}catch(e){productionError(e,'Start');showAuthGate('login','Die Serververbindung konnte nicht aufgebaut werden.','bad')}
+  sb.auth.onAuthStateChange((event,session)=>{prodSession=session;if(event==='PASSWORD_RECOVERY'){recoveryMode=true;setTimeout(showPasswordReset,0)}if(event==='SIGNED_OUT'&&!recoveryMode)setTimeout(()=>showAuthGate('login'),0)});
+  try{
+    const {data:{session}}=await sb.auth.getSession();prodSession=session;
+    if(recoveryMode&&session){setLaunchStatus?.('Passwort-Wiederherstellung…');return showPasswordReset()}
+    if(!session){setLaunchStatus?.('Login wird geöffnet…');return showAuthGate(new URLSearchParams(location.search).has('invite')?'signup':'login')}
+    await new Promise(r=>setTimeout(r,80));
+    if(recoveryMode)return showPasswordReset();
+    await bootstrapAuthenticated()
+  }catch(e){productionError(e,'Start');showAuthGate('login','Die Serververbindung konnte nicht aufgebaut werden.','bad')}
 };
 
 
