@@ -43,3 +43,48 @@
     await previousLoadServerState();
     await Promise.allSettled([enrichMediaState(),refreshSupportUnread()]);
   };
+
+  const previousSubscribeRealtime=subscribeRealtime;
+  subscribeRealtime=function(){
+    previousSubscribeRealtime();
+    try{
+      ['support_tickets','support_messages','support_ticket_reads','social_drafts','update_releases'].forEach(t=>realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh()));
+    }catch{}
+  };
+
+  const previousUpdateBadge=updateBadge;
+  updateBadge=function(){
+    previousUpdateBadge();
+    const a=unreadAnnouncements().length,s=Number(state.supportUnread||0),n=a+s,b=$('#notifBadge');
+    if(!b)return;b.textContent=n;b.classList.toggle('hidden',n===0);$('#notifBtn')?.classList.toggle('has-unread',n>0);
+  };
+
+  // 1) Flexible media visibility and profile/gallery publishing.
+  handlePhotos=async function(files){
+    const arr=[...files].slice(0,12).filter(f=>/^image\/(jpeg|png|webp)$/i.test(f.type)&&f.size<=12*1024*1024);
+    if(!arr.length)return toast('JPEG, PNG oder WebP bis 12 MB');
+    const events=state.events.slice(0,25);
+    openModal('Bilder hinzufügen',`
+      <div class="field"><label>Bereich</label><select id="uploadKind"><option value="crew">Crew</option><option value="vehicle">Fahrzeug</option><option value="event">Event</option></select></div>
+      <div class="field"><label>Event (nur bei Event-Fotos)</label><select id="uploadEvent"><option value="">Kein Event</option>${events.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Beschreibung</label><input id="uploadCaption" placeholder="z. B. Night Drive Mannheim"></div>
+      <div class="media-choice">
+        <label><input type="checkbox" id="profileVisible" checked><span><b>Im Profil sichtbar</b><br><span class="muted tiny">Erscheint im persönlichen Bilderraster.</span></span></label>
+        <label><input type="checkbox" id="galleryVisible" checked><span><b>Zur Crew-Galerie hinzufügen</b><br><span class="muted tiny">Kann unabhängig vom Profil ausgeschaltet werden.</span></span></label>
+      </div>
+      <div class="notice">Sind beide Optionen aus, bleibt das Bild nur für dich gespeichert. Bilder werden vor dem Upload neu als WebP codiert.</div>
+      <button class="btn primary wide" id="startUpload">${arr.length} Bild${arr.length===1?'':'er'} speichern</button>`,()=>{
+      $('#startUpload').onclick=async()=>{
+        const kind=$('#uploadKind').value,eventId=$('#uploadEvent').value||null;
+        if(kind==='event'&&!eventId)return toast('Bitte ein Event auswählen');
+        const profileVisible=$('#profileVisible').checked,galleryVisible=$('#galleryVisible').checked,caption=$('#uploadCaption').value.trim();
+        const btn=$('#startUpload');btn.disabled=true;btn.textContent='Bilder werden verarbeitet…';let ok=0;
+        for(const f of arr){try{const safe=await sanitizeImageFile(f);const path=`${prodSession.user.id}/profile/${uuid()}.webp`;await checked(sb.storage.from('crew-media').upload(path,safe,{contentType:'image/webp',upsert:false}),'Upload');await checked(sb.from('gallery_items').insert({uploader_id:prodSession.user.id,event_id:eventId,category:kind,storage_path:path,caption:caption||f.name.replace(/\.[^.]+$/,''),approved:true,sanitized:true,profile_visible:profileVisible,gallery_visible:galleryVisible}),'Bild');ok++}catch(e){productionError(e,'Bild')}}
+        closeModal();await loadServerState();render();toast(`${ok}/${arr.length} Bilder gespeichert`);
+      };
+    });
+  };
+
+  async function uploadPrimaryMedia(kind,file){
+    if(!file||!/^image\/(jpeg|png|webp)$/i.test(file.type)||file.size>12*1024*1024)return toast('JPEG, PNG oder WebP bis 12 MB');
+    openModal(kind==='avatar'?'Profilbild speichern':'Fahrzeugbild speichern',`
