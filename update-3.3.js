@@ -201,6 +201,66 @@
     if(state.live.share)ensureLiveWatch();else stopLiveWatch();renderLifeMarkers();liveRefreshTimer=setInterval(renderLifeMarkers,8000);
   };
 
+
+  // Smart map inputs: typing a place moves the map, drops a draggable pin and still allows exact selection by tap.
+  function setupSmartPlaceMap({mapId,inputId,statusId,onPin,center=[49.32,8.55],zoom=11}){
+    const input=$('#'+inputId),status=$('#'+statusId);
+    modalMap=L.map(mapId).setView(center,zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(modalMap);
+    let marker=null,debounce=null,lastQuery='';
+    const setStatus=(txt,bad=false)=>{if(status){status.textContent=txt;status.style.color=bad?'#ff7b89':''}};
+    const placePin=(lat,lng,fly=true)=>{
+      if(marker)marker.setLatLng([lat,lng]);else{marker=L.marker([lat,lng],{draggable:true}).addTo(modalMap);marker.on('dragend',e=>{const p=e.target.getLatLng();onPin(p.lat,p.lng);setStatus(`Pin gesetzt · ${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`)})}
+      onPin(lat,lng);if(fly)modalMap.setView([lat,lng],15);setStatus(`Pin gesetzt · ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    };
+    const search=async(force=false)=>{
+      const q=input?.value.trim()||'';if(q.length<3)return;
+      if(!force&&q===lastQuery)return;lastQuery=q;setStatus('Ort wird gesucht…');
+      try{const g=await geocodeAddress(q);placePin(g.lat,g.lng,true);setStatus(`Gefunden · Pin kann auf der Karte exakt verschoben werden`)}catch(e){setStatus('Ort nicht gefunden · Karte kann weiterhin manuell angeklickt werden',true)}
+    };
+    modalMap.on('click',e=>placePin(e.latlng.lat,e.latlng.lng,false));
+    if(input){
+      input.addEventListener('input',()=>{clearTimeout(debounce);debounce=setTimeout(()=>search(false),700)});
+      input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(debounce);search(true)}});
+      input.addEventListener('blur',()=>{if(input.value.trim().length>=3)search(false)});
+    }
+    return{search,hasPin:()=>!!marker};
+  }
+
+  openEventEditor=function(){
+    let pin={lat:null,lng:null};
+    openModal('Treffen erstellen',`<div class="field"><label>Name</label><input id="eventName" placeholder="Spontanes Treffen"></div><div class="field2"><div class="field"><label>Datum</label><input id="eventDate" type="date"></div><div class="field"><label>Uhrzeit</label><input id="eventTime" type="time"></div></div><div class="field"><label>Treffpunkt</label><div class="field2"><input id="eventPlace" placeholder="z. B. Hockenheimring"><button class="btn outline" id="eventPlaceSearch" type="button">Suchen</button></div><div class="muted tiny" id="eventMapStatus" style="margin-top:6px">Ort eingeben oder direkt auf die Karte tippen.</div></div><div id="eventCreateMap" class="map" style="height:240px"></div><div class="notice">Die Ortssuche bewegt die Karte automatisch zum Treffer. Den Pin kannst du danach antippen/verschieben, um den exakten Treffpunkt festzulegen.</div><button class="btn primary wide" id="saveEvent">Treffen veröffentlichen</button>`,()=>{
+      const smart=setupSmartPlaceMap({mapId:'eventCreateMap',inputId:'eventPlace',statusId:'eventMapStatus',onPin:(lat,lng)=>pin={lat,lng}});
+      $('#eventPlaceSearch').onclick=()=>smart.search(true);
+      $('#saveEvent').onclick=()=>{const n=$('#eventName').value.trim(),place=$('#eventPlace').value.trim();if(!n)return toast('Name fehlt');if(place&&!smart.hasPin())return toast('Bitte Treffpunkt suchen oder Pin auf der Karte setzen');state.events.unshift({id:crypto.randomUUID(),name:n,_startsAt:makeLocalIso($('#eventDate').value,$('#eventTime').value),_isNew:true,date:formatDate($('#eventDate').value)||'Termin folgt',time:$('#eventTime').value||'offen',place:place||'Treffpunkt folgt',lat:pin.lat,lng:pin.lng,type:'Treffen',tagline:'Gemeinsam. Unterwegs. Immer Family.',rsvp:{[me().id]:'yes'},arrivals:{}});save();closeModal();toast('Treffen erstellt')};
+    });
+  };
+
+  openAnnouncementEditor=function(){
+    let opts=['Dabei','Vielleicht','Nein'],pin={lat:null,lng:null};
+    openModal('Ankündigung erstellen',`
+      <div class="field"><label>Titel</label><input id="annTitle" placeholder="z. B. Treffen heute"></div>
+      <div class="field"><label>Nachricht</label><textarea id="annBody"></textarea></div>
+      <div class="field2"><div class="field"><label>Priorität</label><select id="annPriority"><option value="normal">Normal · Grün</option><option value="important">Wichtig · Gelb</option><option value="urgent">Dringend · Rot</option></select></div><div class="field"><label>Sichtbar für</label><select id="annDuration"><option value="1">1 Tag</option><option value="3" selected>3 Tage</option><option value="7">7 Tage</option><option value="14">14 Tage</option><option value="0">Kein Ablauf</option></select></div></div>
+      <div class="field2"><div class="field"><label>Termin-Datum (optional)</label><input id="annDate" type="date"></div><div class="field"><label>Uhrzeit</label><input id="annTime" type="time"></div></div>
+      <div class="field"><label>Ort (optional)</label><div class="field2"><input id="annPlace" placeholder="z. B. Hockenheimring"><button class="btn outline" id="annPlaceSearch" type="button">Suchen</button></div><div class="muted tiny" id="annMapStatus" style="margin-top:6px">Ort eingeben oder direkt auf die Karte tippen.</div></div><div id="annMap" class="map" style="height:240px"></div>
+      <div class="field"><label>Antwortmöglichkeiten</label><div class="chips" id="optList"></div><div class="field2"><input id="optInput" placeholder="Eigene Antwort"><button class="btn outline" id="addOpt" type="button">＋ Hinzufügen</button></div></div>
+      <div class="switchrow"><span>Oben anheften</span><button class="switch" id="pinSwitch"></button></div>
+      <div class="switchrow"><span>Bestätigung erforderlich</span><button class="switch" id="confirmSwitch"></button></div>
+      <div class="switchrow"><span>Push senden</span><button class="switch on" id="pushSwitch"></button></div>
+      <button class="btn primary wide" id="saveAnn">Veröffentlichen</button>`,()=>{
+      let confirm=false,push=true,pinned=false;
+      const smart=setupSmartPlaceMap({mapId:'annMap',inputId:'annPlace',statusId:'annMapStatus',onPin:(lat,lng)=>pin={lat,lng}});
+      $('#annPlaceSearch').onclick=()=>smart.search(true);
+      const ro=()=>{$('#optList').innerHTML=opts.map((o,i)=>`<button class="chip active" data-delopt="${i}" type="button">${esc(o)} ×</button>`).join('');$('[data-delopt]').forEach(b=>b.onclick=()=>{opts.splice(+b.dataset.delopt,1);ro()})};ro();
+      $('#addOpt').onclick=()=>{const v=$('#optInput').value.trim();if(v&&!opts.includes(v))opts.push(v);$('#optInput').value='';ro()};
+      $('#pinSwitch').onclick=()=>{$('#pinSwitch').classList.toggle('on');pinned=!pinned};
+      $('#confirmSwitch').onclick=()=>{$('#confirmSwitch').classList.toggle('on');confirm=!confirm};
+      $('#pushSwitch').onclick=()=>{$('#pushSwitch').classList.toggle('on');push=!push};
+      $('#saveAnn').onclick=()=>{const title=$('#annTitle').value.trim(),body=$('#annBody').value.trim(),place=$('#annPlace').value.trim();if(!title||!body)return toast('Titel und Nachricht fehlen');if(place&&!smart.hasPin())return toast('Bitte Ort suchen oder Pin auf der Karte setzen');const days=Number($('#annDuration').value||0),responses={};opts.forEach(o=>responses[o]=[]);state.announcements.unshift({id:crypto.randomUUID(),title,body,priority:$('#annPriority').value,_startsAt:makeLocalIso($('#annDate').value,$('#annTime').value),_displayUntil:days?new Date(Date.now()+days*86400000).toISOString():null,_pinned:pinned,_pushEnabled:push,_isNew:true,created:'Gerade eben',date:$('#annDate').value,time:$('#annTime').value,place,lat:pin.lat,lng:pin.lng,responseOptions:opts,responses,readBy:[me().id],confirmedBy:confirm?[me().id]:[],confirmRequired:confirm,hiddenBy:[],arrivals:{}});state.audit.unshift(`${me().name} veröffentlichte ${title}`);save();closeModal();toast(push?'Ankündigung veröffentlicht · Push wird versendet':'Ankündigung veröffentlicht')};
+    });
+  };
+
   // 6) Full project CRUD.
   async function openProjectEditor(p=null){
     openModal(p?'Projekt bearbeiten':'Projekt erstellen',`<div class="field"><label>Titel</label><input id="projectTitle" value="${esc(p?.title||'')}"></div><div class="field"><label>Beschreibung</label><textarea id="projectText">${esc(p?.text||'')}</textarea></div><div class="field2"><div class="field"><label>Icon</label><input id="projectIcon" value="${esc(p?.icon||'◆')}"></div><div class="field"><label>Status</label><select id="projectStatus"><option value="idea">Idee</option><option value="vote">Abstimmung / geplant</option><option value="work">In Arbeit</option><option value="live">Live</option><option value="paused">Pausiert</option><option value="done">Fertig</option></select></div></div><div class="field"><label>Status-Text</label><input id="projectLabel" value="${esc(p?.statusLabel||'')}"></div><div class="field"><label>Reihenfolge</label><input id="projectOrder" type="number" value="${Number(p?._sortOrder||0)}"></div><button class="btn primary wide" id="saveProjectCrud">Speichern</button>${p?'<button class="btn bad wide" id="deleteProjectCrud" style="margin-top:8px">Projekt löschen</button>':''}`,()=>{
