@@ -4,6 +4,7 @@
   const RELEASE_VERSION='3.3.0';
   const RELEASE_BUILD='2026-09-23.1';
   let liveRefreshTimer=null,liveMarkerLayer=null;
+  let openSupportCenter;
 
   const style=document.createElement('style');
   style.textContent=`
