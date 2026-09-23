@@ -1,6 +1,26 @@
 -- 4W1F 3.3.0 final backend step.
 -- Apply immediately before merging the prepared app branch.
 
+create index if not exists support_tickets_created_by_idx on public.support_tickets(created_by);
+create index if not exists support_tickets_assigned_to_idx on public.support_tickets(assigned_to);
+create index if not exists support_tickets_channel_updated_idx on public.support_tickets(channel,updated_at desc);
+create index if not exists support_messages_ticket_created_idx on public.support_messages(ticket_id,created_at);
+create index if not exists support_messages_sender_idx on public.support_messages(sender_id);
+create index if not exists support_reads_user_idx on public.support_ticket_reads(user_id);
+create index if not exists social_drafts_created_by_idx on public.social_drafts(created_by);
+create index if not exists update_receipts_user_idx on public.update_receipts(user_id);
+
+create or replace function public.set_4w1f_updated_at()
+returns trigger
+language plpgsql
+set search_path=public
+as $
+begin
+  new.updated_at=now();
+  return new;
+end;
+$;
+
 insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
 values ('support-media','support-media',false,12582912,array['image/jpeg','image/png','image/webp'])
 on conflict (id) do update
