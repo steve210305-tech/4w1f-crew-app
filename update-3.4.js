@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.0';
-  const RELEASE_BUILD_340='2026-09-25.1';
+  const RELEASE_VERSION_340='3.4.1';
+  const RELEASE_BUILD_340='2026-09-25.2';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'dispatch',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -130,12 +130,12 @@
 
   function openSoundSettings340(){
     const p=prefs340(),sounds=[
-      ['engine_start','Motorstart','Kurzer Motor-Hochlauf'],
-      ['v8','V8 Puls','Tiefer, kerniger Puls'],
+      ['engine_start','Motorstart','Echter Motorstart'],
+      ['v8','V8','Kurzer echter V8-Rev'],
       ['turbo','Turbo','Spool + Blow-Off'],
-      ['shift','Schaltkick','Kurzer Gangwechsel'],
-      ['horn','Hupe','Zweiklang-Hupe'],
-      ['subtle','Dezent','Kurzer neutraler Ton'],
+      ['shift','Schaltkick','Rev + Gangwechsel'],
+      ['horn','Hupe','Echte Fahrzeughupe'],
+      ['subtle','Dezent','Klarer Notification-Chime'],
       ['mute','Stumm','Kein normaler In-App-Ton']
     ];
     openModal('Benachrichtigungssounds',`<div class="notice">Diese Auswahl gilt für Sounds <b>innerhalb der geöffneten 4W1F-App</b>. Der Ton von System-Pushs außerhalb der App wird vom Handy/Betriebssystem gesteuert.</div>
