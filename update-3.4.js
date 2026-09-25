@@ -232,7 +232,14 @@
 
   const supportStatus340=v=>({open:'Offen',in_progress:'In Bearbeitung',waiting_user:'Warten auf Nutzer',resolved:'Erledigt',closed:'Ticket geschlossen'})[v]||v;
   const supportPriority340=v=>({normal:'Normal',important:'Wichtig',urgent:'Dringend'})[v]||v;
-  async function markTicketRead340(ticketId){await sb.from('support_ticket_reads').upsert({ticket_id:ticketId,user_id:prodSession.user.id,last_read_at:new Date().toISOString()},{onConflict:'ticket_id,user_id'});if(typeof refreshSupportUnread==='function'){try{await refreshSupportUnread()}catch{}}updateBadge()}
+  async function refreshSupportUnread340(){
+    const {data:tickets}=await sb.from('support_tickets').select('id,updated_at');
+    const {data:reads}=await sb.from('support_ticket_reads').select('ticket_id,last_read_at').eq('user_id',prodSession.user.id);
+    const rm=new Map((reads||[]).map(r=>[r.ticket_id,new Date(r.last_read_at).getTime()]));
+    state.supportUnread=(tickets||[]).filter(t=>new Date(t.updated_at).getTime()>(rm.get(t.id)||0)).length;
+    return state.supportUnread;
+  }
+  async function markTicketRead340(ticketId){await sb.from('support_ticket_reads').upsert({ticket_id:ticketId,user_id:prodSession.user.id,last_read_at:new Date().toISOString()},{onConflict:'ticket_id,user_id'});await refreshSupportUnread340();updateBadge()}
 
   async function sendSupportReply340(t,body,file,waitAfter=false){
     if(!body&&!file)return toast('Nachricht oder Bild fehlt');
