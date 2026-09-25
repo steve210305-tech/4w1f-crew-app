@@ -156,3 +156,76 @@
     $('#homeEvent340').onclick=()=>{if(next)openEventDetail(next.id)};
     const now=new Date().toISOString(),patch={last_home_seen_at:now};if(first)patch.first_home_seen_at=now;savePrefs340(patch).catch(()=>{});
   };
+
+  function normalizePhoto340(item){
+    if(!item)return null;
+    if(item.id)return (state.photos||[]).find(p=>p.id===item.id)||item;
+    if(Number.isInteger(item.index))return state.photos?.[item.index]||item;
+    const src=item.src||item.data;return (state.photos||[]).find(p=>p.data===src)||item;
+  }
+  function canDeletePhoto340(p){return !!p?.id&&(p.uploaderId===prodSession?.user?.id||isAdmin())}
+  async function trashPhoto340(p){
+    if(!canDeletePhoto340(p))return toast('Keine Berechtigung');
+    const owner=state.users.find(u=>u.id===p.uploaderId)?.name||'Crew-Mitglied';
+    if(!confirm(isAdmin()&&p.uploaderId!==me().id?`Bild von ${owner} in den Papierkorb verschieben?`:'Bild in den Papierkorb verschieben?'))return;
+    const {error}=await sb.rpc('trash_gallery_item',{p_id:p.id});if(error)return toast(error.message);
+    closeModal();await loadServerState();render();toast('Bild liegt jetzt im Papierkorb');
+  }
+
+  openPhotoViewer=function(item){
+    const p=normalizePhoto340(item);if(!p)return;
+    const src=p.data||p.src,label=p.label||'Crew Foto',owner=state.users.find(u=>u.id===p.uploaderId);
+    openModal(label,`<div class="photo-viewer"><img src="${src}" alt="${esc340(label)}"><div class="photo-viewer-meta"><span class="label function">${p.kind==='events'?'EVENT':p.kind==='cars'?'FAHRZEUG':'CREW'}</span><b>${esc340(label)}</b>${owner?`<span class="muted tiny">von ${esc340(owner.name)}</span>`:''}</div></div>${canDeletePhoto340(p)?`<div class="photo-actions340"><button class="btn bad wide" id="trashPhoto340">Bild löschen</button></div><div class="notice" style="margin-top:8px">Das Bild wird zunächst 7 Tage im Papierkorb aufbewahrt.</div>`:''}`,()=>{$('#trashPhoto340')?.addEventListener('click',()=>trashPhoto340(p))});
+  };
+
+  async function openPhotoTrash340(){
+    const {data:rows,error}=await sb.from('gallery_items').select('*').not('deleted_at','is',null).order('deleted_at',{ascending:false});if(error)return toast(error.message);
+    const items=[];
+    for(const g of rows||[]){const url=await signed340('crew-media',g.storage_path,3600);if(url)items.push({...g,url})}
+    openModal(isAdmin()?'Bilder-Papierkorb':'Mein Bilder-Papierkorb',`<div class="notice">Gelöschte Bilder werden nach <b>7 Tagen</b> automatisch endgültig entfernt. Bis dahin können sie wiederhergestellt werden.</div><div class="section trash-grid340">${items.map(g=>{const age=Math.max(0,Date.now()-new Date(g.deleted_at).getTime()),left=Math.max(0,7-Math.floor(age/86400000)),owner=state.users.find(u=>u.id===g.uploader_id);return `<div class="card trash-item340"><img src="${g.url}" alt="${esc340(g.caption||'Gelöschtes Bild')}"><div class="body"><b class="small">${esc340(g.caption||'Crew Foto')}</b><div class="muted tiny">${owner?esc340(owner.name)+' · ':''}noch ca. ${left} Tag${left===1?'':'e'}</div><div class="actions"><button class="btn good sm" data-restore340="${g.id}">Wiederherstellen</button>${isAdmin()?`<button class="btn bad sm" data-purge340="${g.id}">Endgültig</button>`:''}</div></div></div>`}).join('')||'<div class="notice" style="grid-column:1/-1">Der Papierkorb ist leer.</div>'}</div>`,()=>{
+      $$('[data-restore340]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_gallery_item',{p_id:b.dataset.restore340});if(error)return toast(error.message);closeModal();await loadServerState();renderGallery();toast('Bild wiederhergestellt')});
+      $$('[data-purge340]').forEach(b=>b.onclick=async()=>{const g=items.find(x=>x.id===b.dataset.purge340);if(!g||!confirm('Bild wirklich endgültig löschen? Das kann nicht rückgängig gemacht werden.'))return;const rm=await sb.storage.from('crew-media').remove([g.storage_path]);if(rm.error)return toast(rm.error.message);const {error}=await sb.rpc('delete_gallery_row_permanently',{p_id:g.id});if(error)return toast(error.message);closeModal();await loadServerState();renderGallery();toast('Bild endgültig gelöscht')});
+    });
+  }
+
+  const renderGallery340Prev=renderGallery;
+  renderGallery=function(){
+    renderGallery340Prev();
+    const lead=$('#view .gallery-lead');if(lead&&!$('#photoTrash340')){const b=document.createElement('button');b.id='photoTrash340';b.className='btn outline sm';b.textContent='🗑 Papierkorb';lead.appendChild(b);b.onclick=openPhotoTrash340}
+    savePrefs340({last_gallery_seen_at:new Date().toISOString()}).catch(()=>{});
+  };
+
+  function privacySwitch340(id,label,sub,checked){return `<label class="privacy-row340"><span><b class="small">${label}</b><br><span class="muted tiny">${sub}</span></span><input id="${id}" type="checkbox" ${checked?'checked':''}></label>`}
+  openProfileEditor=function(){
+    const u=me(),v=u._vehicle||{},p=privacy340(u);
+    openModal('Profil & Privatsphäre',`<div class="field"><label>Name</label><input id="profName340" value="${esc340(u.name)}"></div><div class="field"><label>Instagram / Handle</label><input id="profIg340" value="${esc340(u.ig||'')}"></div><div class="field"><label>Über mich</label><textarea id="profBio340">${esc340(u.bio||'')}</textarea></div>
+      <div class="section"><div class="sectionhead"><h2>Mein Fahrzeug</h2></div><div class="field2"><div class="field"><label>Marke</label><input id="vehMake340" value="${esc340(v.make||'')}"></div><div class="field"><label>Modell</label><input id="vehModel340" value="${esc340(v.model||'')}"></div></div><div class="field2"><div class="field"><label>Baujahr</label><input id="vehYear340" type="number" value="${v.year||''}"></div><div class="field"><label>Leistung (PS)</label><input id="vehPower340" type="number" value="${v.power_ps||''}"></div></div><div class="field"><label>Umbauten · Komma getrennt</label><input id="vehMods340" value="${esc340((v.mods||[]).join(', '))}"></div><div class="field"><label>Fahrzeugbeschreibung</label><textarea id="vehDesc340">${esc340(v.description||'')}</textarea></div></div>
+      <div class="section"><div class="sectionhead"><h2>Privatsphäre</h2></div><div class="privacy-list340">${privacySwitch340('privacyIg340','Instagram anzeigen','Andere Crew-Mitglieder sehen deinen Handle.',p.instagram)}${privacySwitch340('privacyVehicle340','Fahrzeug anzeigen','Fahrzeugbereich im öffentlichen Crew-Profil.',p.vehicle)}${privacySwitch340('privacyPower340','Leistung anzeigen','PS-Zahl im Crew-Profil.',p.power)}${privacySwitch340('privacyMods340','Umbauten anzeigen','Modifikationen und Umbauten.',p.mods)}${privacySwitch340('privacyPhotos340','Profilbilder anzeigen','Dein persönliches Bilderraster.',p.photos)}</div></div>
+      <button class="btn primary wide" id="saveProfile340" style="margin-top:12px">Profil speichern</button>`,()=>{
+      $('#saveProfile340').onclick=async()=>{
+        const privacy={instagram:$('#privacyIg340').checked,vehicle:$('#privacyVehicle340').checked,power:$('#privacyPower340').checked,mods:$('#privacyMods340').checked,photos:$('#privacyPhotos340').checked};
+        const profile={display_name:$('#profName340').value.trim()||u.name,instagram:$('#profIg340').value.trim(),bio:$('#profBio340').value.trim(),privacy};
+        const vehicle={user_id:prodSession.user.id,make:$('#vehMake340').value.trim(),model:$('#vehModel340').value.trim(),year:+$('#vehYear340').value||null,power_ps:+$('#vehPower340').value||null,mods:$('#vehMods340').value.split(',').map(x=>x.trim()).filter(Boolean),description:$('#vehDesc340').value.trim()};
+        const [pr,vr]=await Promise.all([sb.from('profiles').update(profile).eq('id',prodSession.user.id),sb.from('vehicles').upsert(vehicle,{onConflict:'user_id'})]);if(pr.error||vr.error)return toast(pr.error?.message||vr.error?.message);closeModal();await loadServerState();renderProfile();toast('Profil & Privatsphäre gespeichert');
+      };
+    });
+  };
+
+  openMemberDetail=async function(id){
+    const u=state.users.find(x=>x.id===id);if(!u)return;const v=u._vehicle||{},p=privacy340(u),photos=p.photos?(state.photos||[]).filter(x=>x.uploaderId===u.id&&x.profileVisible&&x.approved!==false):[];
+    openModal(u.name,'<div class="notice">Profil wird geladen…</div>');
+    const [avatarUrl,vehicleUrl]=await Promise.all([signed340('avatars',u._avatarPath),p.vehicle?signed340('crew-media',v.photo_path):Promise.resolve(null)]);
+    openModal(u.name,`<div class="member-social"><div class="member-social-head"><div class="member-social-avatar">${avatarUrl?`<img src="${avatarUrl}" alt="">`:(u.emoji||'🚗')}</div><div class="member-social-meta"><div class="eyebrow">${roleLabel(u.role)}</div><h3>${esc340(u.name)}</h3>${p.instagram&&u.ig?`<div class="muted small">${esc340(u.ig)}</div>`:''}<div class="member-tags" style="margin-top:7px">${(u.labels||[]).map(l=>`<span class="label function">${esc340(l)}</span>`).join('')}</div></div></div>
+      <div class="member-social-stats"><div><b>${p.photos?photos.length:'—'}</b><span>PROFILFOTOS</span></div><div><b>${p.power&&p.vehicle?(v.power_ps||'—'):'—'}</b><span>PS</span></div><div><b>${formatJoined(u.joinedAt)}</b><span>DABEI SEIT</span></div></div>
+      <div class="card pad"><div class="eyebrow">Über mich</div><p class="small" style="line-height:1.6;margin-bottom:0">${esc340(u.bio||'Noch keine Beschreibung hinterlegt.')}</p></div>
+      ${p.vehicle?`<div class="card member-vehicle"><div class="member-vehicle-photo">${vehicleUrl?`<img src="${vehicleUrl}" alt="">`:'Noch kein Fahrzeugbild'}</div><div class="member-vehicle-body"><div class="eyebrow">Fahrzeug</div><h3 style="margin:5px 0">${esc340([v.make,v.model].filter(Boolean).join(' ')||u.car||'Noch kein Fahrzeug')}</h3><div class="muted small">${v.year?`Baujahr ${v.year}`:''}${p.power&&v.power_ps?` · ${v.power_ps} PS`:''}</div>${v.description?`<p class="small" style="line-height:1.55">${esc340(v.description)}</p>`:''}${p.mods&&(v.mods||[]).length?`<div class="chips">${v.mods.map(m=>`<span class="chip active">${esc340(m)}</span>`).join('')}</div>`:''}</div></div>`:'<div class="notice">Dieses Mitglied blendet Fahrzeugdetails im Crew-Profil aus.</div>'}
+      ${p.photos?`<div><div class="sectionhead"><h2>Profilbilder</h2></div><div class="member-photo-grid">${photos.map((x,i)=>`<button data-profile340="${i}"><img src="${x.data}" alt="${esc340(x.label||'Foto')}"></button>`).join('')||'<div class="notice" style="grid-column:1/-1">Noch keine Profilbilder.</div>'}</div></div>`:'<div class="notice">Profilbilder sind für andere Crew-Mitglieder ausgeblendet.</div>'}
+      ${u.id===me().id?'<button class="btn primary wide" id="editOwn340">Profil bearbeiten</button>':''}</div>`,()=>{$$('[data-profile340]').forEach(b=>b.onclick=()=>openPhotoViewer(photos[+b.dataset.profile340]));$('#editOwn340')?.addEventListener('click',()=>{closeModal();openProfileEditor()})});
+  };
+
+  const renderProfile340Prev=renderProfile;
+  renderProfile=function(){
+    renderProfile340Prev();
+    setTimeout(()=>{const grid=$('#view .admin-grid');if(grid&&!$('#profileSounds340')){const s=document.createElement('button');s.className='card admin-tool clickable';s.id='profileSounds340';s.innerHTML=`${I('bell')}<div><b>Sounds</b><br><span>Motor, Turbo & Support-Ton</span></div>`;grid.appendChild(s);s.onclick=openSoundSettings340}
+      if(grid&&!$('#profileTrash340')){const t=document.createElement('button');t.className='card admin-tool clickable';t.id='profileTrash340';t.innerHTML=`${I('gallery')}<div><b>Bilder-Papierkorb</b><br><span>Gelöschte Bilder wiederherstellen</span></div>`;grid.appendChild(t);t.onclick=openPhotoTrash340}},40);
+  };
