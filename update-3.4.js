@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const RELEASE_VERSION_340='3.4.2';
-  const RELEASE_BUILD_340='2026-09-25.3';
+  const RELEASE_BUILD_340='2026-09-25.4';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'dispatch',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -166,29 +166,7 @@
     if(!prodSession)return;const row={...patch,user_id:prodSession.user.id};const {data,error}=await sb.from('user_preferences').upsert(row,{onConflict:'user_id'}).select('*').single();if(error)return toast(error.message);state.userPrefs340={...prefs340(),...data};
   }
 
-  function openSoundSettings340(){
-    const p=prefs340(),sounds=[
-      ['engine_start','Motorstart','Echter Motorstart'],
-      ['v8','V8','Kurzer echter V8-Rev'],
-      ['turbo','Turbo','Spool + Blow-Off'],
-      ['shift','Schaltkick','Rev + Gangwechsel'],
-      ['horn','Hupe','Echte Fahrzeughupe'],
-      ['subtle','Dezent','Klarer Notification-Chime'],
-      ['mute','Stumm','Kein normaler In-App-Ton']
-    ];
-    openModal('Benachrichtigungssounds',`<div class="notice">Diese Auswahl gilt für Sounds <b>innerhalb der geöffneten 4W1F-App</b>. Der Ton von System-Pushs außerhalb der App wird vom Handy/Betriebssystem gesteuert.</div>
-      <div class="switchrow"><span>In-App Benachrichtigungssounds</span><button class="switch ${p.sound_enabled?'on':''}" id="soundEnabled340"></button></div>
-      <div class="section"><div class="sectionhead"><h2>Normaler Sound</h2></div><div class="sound-grid340">${sounds.map(s=>`<button class="card sound-card340 ${p.notification_sound===s[0]?'active':''}" data-sound340="${s[0]}"><b>${s[1]}</b><span>${s[2]}${s[0]!=='mute'?' · ▶ Anhören':''}</span></button>`).join('')}</div></div>
-      <div class="section"><div class="sectionhead"><h2>Support</h2></div><div class="card pad"><b>4W1F Support Dispatch</b><div class="muted small">Eigener Ton, sobald ein neues Support-Ticket für dich als Admin/Owner eingeht.</div><div class="actions"><button class="btn outline sm" id="previewSupport340">Anhören</button><button class="switch ${p.support_sound_enabled?'on':''}" id="supportSoundEnabled340"></button></div></div></div>
-      <button class="btn primary wide" id="saveSounds340" style="margin-top:12px">Speichern</button>`,()=>{
-      let selected=p.notification_sound,enabled=p.sound_enabled,supportEnabled=p.support_sound_enabled;
-      $$('[data-sound340]').forEach(b=>b.onclick=()=>{selected=b.dataset.sound340;$$('[data-sound340]').forEach(x=>x.classList.toggle('active',x===b));playSound340(selected,true)});
-      $('#soundEnabled340').onclick=()=>{enabled=!enabled;$('#soundEnabled340').classList.toggle('on',enabled)};
-      $('#supportSoundEnabled340').onclick=()=>{supportEnabled=!supportEnabled;$('#supportSoundEnabled340').classList.toggle('on',supportEnabled)};
-      $('#previewSupport340').onclick=()=>playSound340('dispatch',true);
-      $('#saveSounds340').onclick=async()=>{await savePrefs340({notification_sound:selected,sound_enabled:enabled,support_sound:'dispatch',support_sound_enabled:supportEnabled});closeModal();toast('Sound-Einstellungen gespeichert')};
-    });
-  }
+  
 
   const subscribeRealtime340Prev=subscribeRealtime;
   subscribeRealtime=function(){
