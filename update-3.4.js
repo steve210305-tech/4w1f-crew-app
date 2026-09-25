@@ -160,8 +160,10 @@
   function normalizePhoto340(item){
     if(!item)return null;
     if(item.id)return (state.photos||[]).find(p=>p.id===item.id)||item;
+    const src=item.src||item.data;
+    if(src){const bySrc=(state.photos||[]).find(p=>p.data===src);if(bySrc)return bySrc}
     if(Number.isInteger(item.index))return state.photos?.[item.index]||item;
-    const src=item.src||item.data;return (state.photos||[]).find(p=>p.data===src)||item;
+    return item;
   }
   function canDeletePhoto340(p){return !!p?.id&&(p.uploaderId===prodSession?.user?.id||isAdmin())}
   async function trashPhoto340(p){
