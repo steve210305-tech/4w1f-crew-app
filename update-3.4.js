@@ -296,3 +296,93 @@
       $$('[data-support-tab340]').forEach(b=>b.onclick=()=>{$$('[data-support-tab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});$('#supportList340').innerHTML=renderRows(b.dataset.supportTab340==='mine'?mine:staff);bind()});
     });
   };
+
+  async function markGenericRead340(key){if(!key)return;await sb.from('app_notification_reads').upsert({user_id:prodSession.user.id,notification_key:key,read_at:new Date().toISOString()},{onConflict:'user_id,notification_key'});state.notificationReads340?.set(key,new Date().toISOString())}
+
+  async function showReleaseNotes340(force=false){
+    const {data:rel,error}=await sb.from('update_releases').select('*').eq('version',RELEASE_VERSION_340).eq('active',true).maybeSingle();if(error||!rel)return;
+    if(!force){const {data:seen}=await sb.from('update_receipts').select('version').eq('version',RELEASE_VERSION_340).eq('user_id',prodSession.user.id).maybeSingle();if(seen)return}
+    const notes=(Array.isArray(rel.notes)?rel.notes:[]).filter(n=>!Array.isArray(n.roles)||n.roles.includes(me().role));
+    openModal(`Neu in ${rel.version}`,`<div class="card pad"><div class="eyebrow">4W1F Update</div><h3 style="margin:6px 0">${esc340(rel.title||'Was ist neu?')}</h3><div class="muted small">Kurz erklärt – das hat sich für dich geändert.</div></div><div class="section">${notes.map(n=>`<div class="release-note"><b>${esc340(n.title||'Neu')}</b><span>${esc340(n.body||'')}</span></div>`).join('')||'<div class="notice">Für deine Rolle gibt es keine sichtbaren Änderungen.</div>'}</div><button class="btn primary wide" id="releaseDone340" style="margin-top:12px">Verstanden · App öffnen</button>`,()=>{$('#releaseDone340').onclick=async()=>{await sb.from('update_receipts').upsert({version:RELEASE_VERSION_340,user_id:prodSession.user.id,seen_at:new Date().toISOString()},{onConflict:'version,user_id'});await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal()}});
+  }
+
+  showNotifications=async function(){
+    openModal('Benachrichtigungen','<div class="notice">Benachrichtigungen werden geladen…</div>');
+    const uid=prodSession.user.id;
+    const [ticketsRes,readsRes,releaseSeenRes]=await Promise.all([
+      sb.from('support_tickets').select('*').order('updated_at',{ascending:false}),
+      sb.from('support_ticket_reads').select('ticket_id,last_read_at').eq('user_id',uid),
+      sb.from('update_receipts').select('version').eq('version',RELEASE_VERSION_340).eq('user_id',uid).maybeSingle()
+    ]);
+    const ticketReads=new Map((readsRes.data||[]).map(x=>[x.ticket_id,new Date(x.last_read_at).getTime()])),generic=state.notificationReads340||new Map();
+    const anns=(state.announcements||[]).filter(a=>!(a.hiddenBy||[]).includes(uid)).map(a=>({type:'announcement',key:`announcement:${a.id}`,id:a.id,title:a.title,sub:a.body||'',time:a.created||'',unread:!(a.readBy||[]).includes(uid)}));
+    const supports=(ticketsRes.data||[]).map(t=>({type:'support',key:`support:${t.id}`,id:t.id,title:`Ticket #${t.ticket_no} · ${t.subject}`,sub:`${supportStatus340(t.status)} · ${t.channel==='owner'?'Owner':'Admin'} Support`,time:fmtAgo340(t.updated_at),unread:new Date(t.updated_at).getTime()>(ticketReads.get(t.id)||0)}));
+    const events=(state.events||[]).filter(e=>e.past!==true).slice(0,20).map(e=>({type:'event',key:`event:${e.id}`,id:e.id,title:e.name,sub:`${e.date||'Termin folgt'} · ${e.place||'Treffpunkt folgt'}`,time:e.time?e.time+' Uhr':'',unread:!generic.has(`event:${e.id}`)}));
+    const system=[{type:'system',key:`release:${RELEASE_VERSION_340}`,id:RELEASE_VERSION_340,title:`Update ${RELEASE_VERSION_340}`,sub:'Sieh dir kurz an, was sich in der App geändert hat.',time:'System',unread:!releaseSeenRes.data}];
+    const all=[...anns,...supports,...events,...system];
+    const label={all:'Alle',announcement:'Ankündigungen',support:'Support',event:'Events',system:'System'};
+    const draw=type=>{
+      const rows=(type==='all'?all:all.filter(x=>x.type===type));
+      $('#notifList340').innerHTML=rows.map(x=>`<button class="card ticket-row clickable notif-item340 ${x.unread?'unread':''}" data-notif340="${x.type}|${x.id}"><div class="ticket-top"><b>${x.unread?'<span class="notif-dot340">●</span> ':''}${esc340(x.title)}</b><span class="label function">${label[x.type]}</span></div><div class="muted tiny">${esc340(x.sub)}${x.time?` · ${esc340(x.time)}`:''}</div></button>`).join('')||'<div class="notice">Hier ist gerade nichts Neues.</div>';
+      $$('[data-notif340]').forEach(b=>b.onclick=async()=>{const [kind,id]=b.dataset.notif340.split('|');if(kind==='announcement'){const a=state.announcements.find(x=>x.id===id);a.readBy??=[];if(!a.readBy.includes(uid))a.readBy.push(uid);save();closeModal();openAnnouncementDetail(id)}else if(kind==='support'){closeModal();window.__4w1fOpenSupportTicket340(id)}else if(kind==='event'){await markGenericRead340(`event:${id}`);closeModal();openEventDetail(id)}else{await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal();showReleaseNotes340(true)}})
+    };
+    openModal('Benachrichtigungen',`<div class="notif-tabs340">${['all','announcement','support','event','system'].map((x,i)=>`<button class="btn ${i===0?'primary':'outline'} sm" data-ntab340="${x}">${label[x]}</button>`).join('')}</div><div class="list" id="notifList340"></div><div class="section actions"><button class="btn outline" id="markAllNotif340">Alles gelesen</button><button class="btn outline" id="notifSounds340">🔊 Sounds</button></div>`,()=>{
+      draw('all');$$('[data-ntab340]').forEach(b=>b.onclick=()=>{$$('[data-ntab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});draw(b.dataset.ntab340)});
+      $('#notifSounds340').onclick=()=>{closeModal();openSoundSettings340()};
+      $('#markAllNotif340').onclick=async()=>{
+        for(const a of state.announcements||[]){a.readBy??=[];if(!a.readBy.includes(uid))a.readBy.push(uid)}save();
+        const now=new Date().toISOString(),tickets=ticketsRes.data||[];if(tickets.length)await sb.from('support_ticket_reads').upsert(tickets.map(t=>({ticket_id:t.id,user_id:uid,last_read_at:now})),{onConflict:'ticket_id,user_id'});
+        const genericRows=events.map(e=>({user_id:uid,notification_key:e.key,read_at:now}));if(genericRows.length)await sb.from('app_notification_reads').upsert(genericRows,{onConflict:'user_id,notification_key'});
+        await sb.from('update_receipts').upsert({version:RELEASE_VERSION_340,user_id:uid,seen_at:now},{onConflict:'version,user_id'});
+        closeModal();await loadServerState();updateBadge();toast('Alles als gelesen markiert');
+      };
+    });
+  };
+
+  function injectCrewPlaceChips340(inputId,mapElementId){
+    const input=$('#'+inputId),mapEl=$('#'+mapElementId),places=state.crewPlaces340||[];if(!input||!mapEl||!places.length||document.getElementById(inputId+'CrewPlaces340'))return;
+    const wrap=document.createElement('div');wrap.id=inputId+'CrewPlaces340';wrap.innerHTML=`<div class="muted tiny" style="margin:7px 0 5px">Crew-Orte</div><div class="crew-place-chips340">${places.map(p=>`<button class="chip" type="button" data-place340="${p.id}">${esc340(p.icon||'📍')} ${esc340(p.name)}</button>`).join('')}</div>`;mapEl.insertAdjacentElement('beforebegin',wrap);
+    wrap.querySelectorAll('[data-place340]').forEach(b=>b.onclick=()=>{const p=places.find(x=>x.id===b.dataset.place340);if(!p)return;input.value=p.address?`${p.name}, ${p.address}`:p.name;input.dispatchEvent(new Event('input',{bubbles:true}));try{if(modalMap&&window.L){modalMap.setView([p.latitude,p.longitude],16);modalMap.fire('click',{latlng:L.latLng(p.latitude,p.longitude)})}}catch{}});
+  }
+
+  const eventEditor340Prev=openEventEditor;
+  openEventEditor=function(){eventEditor340Prev();setTimeout(()=>injectCrewPlaceChips340('eventPlace','eventCreateMap'),40)};
+  const annEditor340Prev=openAnnouncementEditor;
+  openAnnouncementEditor=function(){annEditor340Prev();setTimeout(()=>injectCrewPlaceChips340('annPlace','annMap'),40)};
+
+  async function openCrewPlaceEditor340(place=null){
+    let pin=place?{lat:Number(place.latitude),lng:Number(place.longitude)}:{lat:null,lng:null};
+    openModal(place?'Crew-Ort bearbeiten':'Crew-Ort hinzufügen',`<div class="field"><label>Name</label><input id="crewPlaceName340" value="${esc340(place?.name||'')}" placeholder="z. B. Hockenheimring"></div><div class="field"><label>Adresse / Suche</label><div class="field2"><input id="crewPlaceAddress340" value="${esc340(place?.address||'')}" placeholder="Ort oder Adresse"><button class="btn outline" id="searchCrewPlace340">Suchen</button></div></div><div class="field"><label>Icon</label><input id="crewPlaceIcon340" value="${esc340(place?.icon||'📍')}" maxlength="4"></div><div id="crewPlaceMap340" class="map" style="height:260px"></div><div class="notice" id="crewPlaceHint340">Suche einen Ort oder tippe auf die Karte. Der Pin kann verschoben werden.</div><button class="btn primary wide" id="saveCrewPlace340" style="margin-top:10px">Crew-Ort speichern</button>`,()=>{
+      const center=pin.lat?[pin.lat,pin.lng]:[49.32,8.55];modalMap=L.map('crewPlaceMap340').setView(center,pin.lat?15:11);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(modalMap);let marker=null;
+      const setPin=(lat,lng)=>{pin={lat,lng};if(marker)marker.setLatLng([lat,lng]);else{marker=L.marker([lat,lng],{draggable:true}).addTo(modalMap);marker.on('dragend',e=>{const x=e.target.getLatLng();pin={lat:x.lat,lng:x.lng}})}modalMap.setView([lat,lng],15)};
+      if(pin.lat)setPin(pin.lat,pin.lng);modalMap.on('click',e=>setPin(e.latlng.lat,e.latlng.lng));
+      $('#searchCrewPlace340').onclick=async()=>{const q=$('#crewPlaceAddress340').value.trim()||$('#crewPlaceName340').value.trim();if(!q)return toast('Ort fehlt');$('#crewPlaceHint340').textContent='Ort wird gesucht…';try{const g=await geocodeAddress(q);setPin(g.lat,g.lng);$('#crewPlaceHint340').textContent='Gefunden · Pin bei Bedarf exakt verschieben.'}catch{$('#crewPlaceHint340').textContent='Ort nicht gefunden · bitte Pin manuell setzen.'}};
+      $('#saveCrewPlace340').onclick=async()=>{const name=$('#crewPlaceName340').value.trim();if(!name||pin.lat==null)return toast('Name und Karten-Pin fehlen');const row={name,address:$('#crewPlaceAddress340').value.trim(),latitude:pin.lat,longitude:pin.lng,icon:$('#crewPlaceIcon340').value.trim()||'📍',created_by:place?.created_by||prodSession.user.id};const q=place?sb.from('crew_places').update(row).eq('id',place.id):sb.from('crew_places').insert(row);const {error}=await q;if(error)return toast(error.message);closeModal();await loadServerState();openCrewPlaces340();toast('Crew-Ort gespeichert')};
+    });
+  }
+  async function openCrewPlaces340(){
+    const {data,error}=await sb.from('crew_places').select('*').order('name');if(error)return toast(error.message);const places=data||[];
+    openModal('Crew-Orte',`<div class="notice">Gespeicherte Crew-Orte erscheinen direkt beim Erstellen von Treffen und Ankündigungen.</div>${isAdmin()?'<button class="btn primary wide" id="newCrewPlace340" style="margin-top:10px">+ Crew-Ort hinzufügen</button>':''}<div class="section list">${places.map(p=>`<div class="card pad place-row340"><div><b>${esc340(p.icon||'📍')} ${esc340(p.name)}</b><div class="muted tiny">${esc340(p.address||`${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}`)}</div></div>${isAdmin()?`<div class="actions"><button class="btn outline sm" data-edit-place340="${p.id}">Bearbeiten</button><button class="btn bad sm" data-del-place340="${p.id}">Löschen</button></div>`:''}</div>`).join('')||'<div class="notice">Noch keine Crew-Orte gespeichert.</div>'}</div>`,()=>{
+      $('#newCrewPlace340')?.addEventListener('click',()=>{closeModal();openCrewPlaceEditor340()});
+      $$('[data-edit-place340]').forEach(b=>b.onclick=()=>{const p=places.find(x=>x.id===b.dataset.editPlace340);closeModal();openCrewPlaceEditor340(p)});
+      $$('[data-del-place340]').forEach(b=>b.onclick=async()=>{const p=places.find(x=>x.id===b.dataset.delPlace340);if(!p||!confirm(`${p.name} wirklich aus den Crew-Orten löschen?`))return;const {error}=await sb.from('crew_places').delete().eq('id',p.id);if(error)return toast(error.message);closeModal();await loadServerState();openCrewPlaces340()});
+    });
+  }
+
+  async function openAudit340(){
+    const {data,error}=await sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(200);if(error)return toast(error.message);const rows=data||[];
+    const names=new Map((state.users||[]).map(u=>[u.id,u.name])),labels={invite_claimed:'Einladung angenommen',invite_created:'Einladung erstellt',gallery_trash:'Bild gelöscht',gallery_restore:'Bild wiederhergestellt',gallery_delete_permanent:'Bild endgültig gelöscht',gallery_auto_purge:'Bild automatisch entfernt',support_claim:'Support-Ticket übernommen',support_status:'Ticket-Status geändert',support_close:'Ticket geschlossen',crew_place_create:'Crew-Ort erstellt',crew_place_update:'Crew-Ort geändert',crew_place_delete:'Crew-Ort gelöscht',profile_admin_change:'Rolle / Labels geändert',event_create:'Treffen erstellt',event_delete:'Treffen gelöscht',announcement_create:'Ankündigung erstellt',announcement_delete:'Ankündigung gelöscht'};
+    openModal('Admin-Aktivitätsverlauf',`<div class="notice">Serverseitiger Verlauf wichtiger Verwaltungsaktionen. Die Einträge dienen der Nachvollziehbarkeit und können nicht über diese Ansicht verändert werden.</div><div class="section list">${rows.map(a=>`<div class="card audit-row340"><b>${esc340(labels[a.action]||a.action)}</b><div class="small">${esc340(names.get(a.actor_id)|| (a.actor_id?'Unbekannter Admin':'System'))}</div><div class="meta">${fmtAgo340(a.created_at)} · ${esc340(a.entity_type||'System')}${a.entity_id?` · ${esc340(a.entity_id)}`:''}</div></div>`).join('')||'<div class="notice">Noch keine Aktivitäten protokolliert.</div>'}</div>`);
+  }
+
+  const renderAdmin340Prev=renderAdmin;
+  renderAdmin=function(){
+    renderAdmin340Prev();
+    setTimeout(()=>{const system=$('#securityAdmin')?.closest('.admin-grid'),meet=$('#eventAdmin')?.closest('.admin-grid');if(meet&&!$('#crewPlacesAdmin340')){const b=document.createElement('button');b.className='card admin-tool clickable';b.id='crewPlacesAdmin340';b.innerHTML=`${I('pin')}<div><b>Crew-Orte</b><br><span>Favoriten für Treffen & Karten</span></div>`;meet.appendChild(b);b.onclick=openCrewPlaces340}if(system&&!$('#auditAdmin340')){const b=document.createElement('button');b.className='card admin-tool clickable';b.id='auditAdmin340';b.innerHTML=`${I('shield')}<div><b>Aktivitätsverlauf</b><br><span>Admin-Aktionen nachvollziehen</span></div>`;system.appendChild(b);b.onclick=openAudit340}},40);
+  };
+
+  const renderProfilePlaces340Prev=renderProfile;
+  renderProfile=function(){renderProfilePlaces340Prev();setTimeout(()=>{const grid=$('#view .admin-grid');if(grid&&!$('#profilePlaces340')){const b=document.createElement('button');b.className='card admin-tool clickable';b.id='profilePlaces340';b.innerHTML=`${I('pin')}<div><b>Crew-Orte</b><br><span>Gespeicherte Treffpunkte</span></div>`;grid.appendChild(b);b.onclick=openCrewPlaces340}},60)};
+
+  const bootstrap340Prev=bootstrapAuthenticated;
+  bootstrapAuthenticated=async function(){await bootstrap340Prev();if(!prodSession||!serverLoaded)return;let tries=0;const attempt=async()=>{if(tries++>5)return;const modal=$('#modal');if(modal?.classList.contains('show'))return setTimeout(attempt,1200);await showReleaseNotes340(false)};setTimeout(attempt,1100)};
