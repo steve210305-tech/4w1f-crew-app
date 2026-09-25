@@ -395,8 +395,8 @@
   bootstrapAuthenticated=async function(){await bootstrap340Prev();if(!prodSession||!serverLoaded)return;let tries=0;const attempt=async()=>{if(tries++>5)return;const modal=$('#modal');if(modal?.classList.contains('show'))return setTimeout(attempt,1200);await showReleaseNotes340(false)};setTimeout(attempt,1100)};
 
   async function openImageManager340(allCrew=false){
-    const q=sb.from('gallery_items').select('*').is('deleted_at',null).order('created_at',{ascending:false});
-    if(!allCrew)q.eq('uploader_id',prodSession.user.id);
+    let q=sb.from('gallery_items').select('*').is('deleted_at',null).order('created_at',{ascending:false});
+    if(!allCrew)q=q.eq('uploader_id',prodSession.user.id);
     const {data,error}=await q;if(error)return toast(error.message);const rows=data||[],items=[];
     for(const g of rows){const url=await signed340('crew-media',g.storage_path,3600);if(url)items.push({...g,url})}
     openModal(allCrew?'Crew-Bilder verwalten':'Meine Bilder',`<div class="notice">${allCrew?'Als Admin kannst du jedes hochgeladene Crew-Bild verwalten und in den Papierkorb legen.':'Hier siehst du auch Bilder, die nur im Profil oder komplett privat gespeichert sind.'}</div><div class="section trash-grid340">${items.map(g=>{const owner=state.users.find(u=>u.id===g.uploader_id),vis=[g.profile_visible?'Profil':'',g.gallery_visible?'Galerie':''].filter(Boolean).join(' + ')||'Privat';return `<div class="card trash-item340"><img src="${g.url}" alt="${esc340(g.caption||'Bild')}"><div class="body"><b class="small">${esc340(g.caption||'Crew Foto')}</b><div class="muted tiny">${allCrew&&owner?esc340(owner.name)+' · ':''}${esc340(vis)}</div><div class="actions"><button class="btn bad sm" data-manage-trash340="${g.id}">Löschen</button></div></div></div>`}).join('')||'<div class="notice" style="grid-column:1/-1">Keine Bilder vorhanden.</div>'}</div><button class="btn outline wide" id="openTrashFromManager340" style="margin-top:10px">Papierkorb öffnen</button>`,()=>{
