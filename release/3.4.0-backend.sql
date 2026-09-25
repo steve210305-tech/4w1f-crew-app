@@ -213,7 +213,7 @@ create policy gallery_delete on public.gallery_items
 for delete to authenticated using (false);
 
 create or replace function public.trash_primary_media(p_owner_id uuid,p_media_type text)
-returns table(trash_id uuid,bucket text,storage_path text,deleted_at timestamptz)
+returns uuid
 language plpgsql
 security definer
 set search_path=public,private
@@ -249,7 +249,7 @@ begin
   values(uid,'profile_media_trash','profile_media',tid::text,
     jsonb_build_object('owner_id',p_owner_id,'media_type',p_media_type,'bucket',b,'storage_path',path));
 
-  return query select x.id,x.bucket,x.storage_path,x.deleted_at from public.profile_media_trash x where x.id=tid;
+  return tid;
 end;
 $fn$;
 
