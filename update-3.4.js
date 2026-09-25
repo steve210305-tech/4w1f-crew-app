@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.1';
-  const RELEASE_BUILD_340='2026-09-25.2';
+  const RELEASE_VERSION_340='3.4.2';
+  const RELEASE_BUILD_340='2026-09-25.3';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'dispatch',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -72,13 +72,19 @@
   loadServerState=async function(){await loadServerState340Prev();await load340Extras()};
 
   const soundFiles341={
-    engine_start:'engine_start.mp3',
-    v8:'v8.mp3',
-    turbo:'turbo.mp3',
-    shift:'shift.mp3',
-    horn:'horn.mp3',
-    subtle:'subtle.mp3',
-    dispatch:'dispatch.mp3'
+    engine_start:'engine_cold.mp3',
+    v8:'v8_deep.mp3',
+    turbo:'turbo_aggressive.mp3',
+    turbo_clean:'turbo_clean.mp3',
+    turbo_aggressive:'turbo_aggressive.mp3',
+    turbo_flutter:'turbo_flutter.mp3',
+    shift:'shift_dct.mp3',
+    horn:'horn_euro.mp3',
+    subtle:'chime_clean.mp3',
+    dispatch:'support_radio.mp3',
+    support_dispatch_pro:'support_dispatch_pro.mp3',
+    support_radio:'support_radio.mp3',
+    support_premium:'support_premium.mp3'
   };
   const soundBuffers341=new Map();
   let audioContext341=null;
@@ -91,8 +97,8 @@
     return audioContext341;
   }
   function soundUrl341(name){
-    const file=soundFiles341[name];if(!file)return null;
-    return sb.storage.from('app-audio').getPublicUrl(`3.4.1/${file}`).data.publicUrl;
+    const file=soundFiles341[name]||soundFiles341.subtle;
+    return sb.storage.from('app-audio').getPublicUrl(`3.4.2/${file}`).data.publicUrl;
   }
   async function loadSound341(name){
     if(soundBuffers341.has(name))return soundBuffers341.get(name);
@@ -108,21 +114,53 @@
       if(ctx.state!=='running')await ctx.resume();
       const buf=await loadSound341(name);if(!buf)return;
       const src=ctx.createBufferSource(),gain=ctx.createGain();
-      src.buffer=buf;gain.gain.value=name==='dispatch'?.78:.88;
+      src.buffer=buf;gain.gain.value=String(name).startsWith('support_')||name==='dispatch'?.82:.92;
       src.connect(gain).connect(ctx.destination);src.start(0);
-    }catch(e){console.warn('[4W1F audio]',e)}
+    }catch(e){console.warn('[4W1F audio]',e);toast('Sound konnte nicht abgespielt werden')}
   }
   function playNotification340(kind='general'){
     const p=prefs340();
-    if(kind==='support'){if(p.support_sound_enabled)playSound340(p.support_sound||'dispatch',true)}
+    if(kind==='support'){if(p.support_sound_enabled)playSound340(p.support_sound||'support_radio',true)}
     else playSound340(p.notification_sound||'engine_start');
   }
   const unlock340=()=>{
     const ctx=getAudioContext341();
     try{ctx?.resume()}catch{}
-    Object.keys(soundFiles341).forEach(name=>loadSound341(name).catch(()=>{}));
+    ['engine_start','v8','turbo_clean','turbo_aggressive','turbo_flutter','shift','horn','subtle','support_dispatch_pro','support_radio','support_premium'].forEach(name=>loadSound341(name).catch(()=>{}));
   };
   window.addEventListener('pointerdown',unlock340,{once:true,passive:true});
+
+  function openSoundSettings340(){
+    const p=prefs340(),sounds=[
+      ['engine_start','Motorstart','Cold Start · ▶ Anhören'],
+      ['v8','V8 Deep','Tiefer V8-Rev · ▶ Anhören'],
+      ['turbo_clean','Turbo Clean','Spool + klares Blow-Off · ▶ Anhören'],
+      ['turbo_aggressive','Turbo Aggressiv','Mehr Druck + Blow-Off · ▶ Anhören'],
+      ['turbo_flutter','Turbo Flutter','Spool + Stutututu · ▶ Anhören'],
+      ['shift','DCT Schaltkick','Rev + Gangwechsel · ▶ Anhören'],
+      ['horn','Hupe','Kurze echte Hupe · ▶ Anhören'],
+      ['subtle','Dezent','Notification-Chime · ▶ Anhören'],
+      ['mute','Stumm','Kein normaler In-App-Ton']
+    ],supportSounds=[
+      ['support_dispatch_pro','Dispatch Pro','Zweiton + Werkstatt-Klick'],
+      ['support_radio','Support Radio','Radio-Chirp + Squelch'],
+      ['support_premium','Support Premium','Tiefer Impuls + Chime']
+    ];
+    const normalSelected=soundFiles341[p.notification_sound]?p.notification_sound:'engine_start';
+    const supportSelected=supportSounds.some(x=>x[0]===p.support_sound)?p.support_sound:'support_radio';
+    openModal('Benachrichtigungssounds',`<div class="notice">Die Sounds sind jetzt echte MP3-Audioclips. Tippe einen Sound an und hör ihn direkt probe. System-Pushs außerhalb der geöffneten App verwenden weiterhin den Ton des Handys.</div>
+      <div class="switchrow"><span>In-App Benachrichtigungssounds</span><button class="switch ${p.sound_enabled?'on':''}" id="soundEnabled340"></button></div>
+      <div class="section"><div class="sectionhead"><h2>Fahrzeug-Sound</h2></div><div class="sound-grid340">${sounds.map(s=>`<button class="card sound-card340 ${normalSelected===s[0]?'active':''}" data-sound340="${s[0]}"><b>${s[1]}</b><span>${s[2]}</span></button>`).join('')}</div></div>
+      <div class="section"><div class="sectionhead"><h2>Support-Ton</h2></div><div class="sound-grid340">${supportSounds.map(s=>`<button class="card sound-card340 ${supportSelected===s[0]?'active':''}" data-support-sound340="${s[0]}"><b>${s[1]}</b><span>${s[2]} · ▶ Anhören</span></button>`).join('')}</div><div class="switchrow"><span>Support-Sound aktiv</span><button class="switch ${p.support_sound_enabled?'on':''}" id="supportSoundEnabled340"></button></div></div>
+      <button class="btn primary wide" id="saveSounds340" style="margin-top:12px">Speichern</button>`,()=>{
+      let selected=normalSelected,supportSelectedNow=supportSelected,enabled=p.sound_enabled,supportEnabled=p.support_sound_enabled;
+      $$('[data-sound340]').forEach(b=>b.onclick=()=>{selected=b.dataset.sound340;$$('[data-sound340]').forEach(x=>x.classList.toggle('active',x===b));playSound340(selected,true)});
+      $$('[data-support-sound340]').forEach(b=>b.onclick=()=>{supportSelectedNow=b.dataset.supportSound340;$$('[data-support-sound340]').forEach(x=>x.classList.toggle('active',x===b));playSound340(supportSelectedNow,true)});
+      $('#soundEnabled340').onclick=()=>{enabled=!enabled;$('#soundEnabled340').classList.toggle('on',enabled)};
+      $('#supportSoundEnabled340').onclick=()=>{supportEnabled=!supportEnabled;$('#supportSoundEnabled340').classList.toggle('on',supportEnabled)};
+      $('#saveSounds340').onclick=async()=>{await savePrefs340({notification_sound:selected,sound_enabled:enabled,support_sound:supportSelectedNow,support_sound_enabled:supportEnabled});closeModal();toast('Sound-Einstellungen gespeichert')};
+    });
+  }
 
   async function savePrefs340(patch){
     if(!prodSession)return;const row={...patch,user_id:prodSession.user.id};const {data,error}=await sb.from('user_preferences').upsert(row,{onConflict:'user_id'}).select('*').single();if(error)return toast(error.message);state.userPrefs340={...prefs340(),...data};
