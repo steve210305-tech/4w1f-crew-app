@@ -13,6 +13,26 @@ alter table public.profiles
   add column if not exists privacy jsonb not null default
   '{"instagram":true,"vehicle":true,"power":true,"mods":true,"photos":true}'::jsonb;
 
+create table if not exists public.profile_media_trash (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  media_type text not null check (media_type in ('avatar','vehicle')),
+  bucket text not null check (bucket in ('avatars','crew-media')),
+  storage_path text not null,
+  deleted_by uuid references public.profiles(id) on delete set null,
+  deleted_at timestamptz not null default now(),
+  unique(owner_id,media_type,storage_path)
+);
+create index if not exists profile_media_trash_owner_idx on public.profile_media_trash(owner_id,deleted_at);
+create index if not exists profile_media_trash_deleted_idx on public.profile_media_trash(deleted_at);
+
+alter table public.profile_media_trash enable row level security;
+drop policy if exists profile_media_trash_read on public.profile_media_trash;
+create policy profile_media_trash_read on public.profile_media_trash
+for select to authenticated
+using (owner_id=(select auth.uid()) or private.is_admin());
+grant select on public.profile_media_trash to authenticated;
+
 create table if not exists public.user_preferences (
   user_id uuid primary key references public.profiles(id) on delete cascade,
   notification_sound text not null default 'engine_start',
@@ -191,6 +211,109 @@ using (
 drop policy if exists gallery_delete on public.gallery_items;
 create policy gallery_delete on public.gallery_items
 for delete to authenticated using (false);
+
+create or replace function public.trash_primary_media(p_owner_id uuid,p_media_type text)
+returns table(trash_id uuid,bucket text,storage_path text,deleted_at timestamptz)
+language plpgsql
+security definer
+set search_path=public,private
+as $fn$
+declare
+  uid uuid:=auth.uid();
+  path text;
+  b text;
+  tid uuid;
+begin
+  if p_media_type not in ('avatar','vehicle') then raise exception 'Ungültiger Bildtyp'; end if;
+  if uid<>p_owner_id and not private.is_admin() then raise exception 'Keine Berechtigung'; end if;
+
+  if p_media_type='avatar' then
+    select avatar_path into path from public.profiles where id=p_owner_id for update;
+    if path is null then raise exception 'Kein Profilbild vorhanden'; end if;
+    b:='avatars';
+    update public.profiles set avatar_path=null where id=p_owner_id;
+  else
+    select photo_path into path from public.vehicles where user_id=p_owner_id for update;
+    if path is null then raise exception 'Kein Fahrzeugbild vorhanden'; end if;
+    b:='crew-media';
+    update public.vehicles set photo_path=null where user_id=p_owner_id;
+  end if;
+
+  insert into public.profile_media_trash(owner_id,media_type,bucket,storage_path,deleted_by)
+  values(p_owner_id,p_media_type,b,path,uid)
+  on conflict(owner_id,media_type,storage_path)
+  do update set deleted_by=excluded.deleted_by,deleted_at=now()
+  returning id into tid;
+
+  insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+  values(uid,'profile_media_trash','profile_media',tid::text,
+    jsonb_build_object('owner_id',p_owner_id,'media_type',p_media_type,'bucket',b,'storage_path',path));
+
+  return query select x.id,x.bucket,x.storage_path,x.deleted_at from public.profile_media_trash x where x.id=tid;
+end;
+$fn$;
+
+create or replace function public.restore_primary_media(p_trash_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path=public,private
+as $fn$
+declare
+  uid uuid:=auth.uid();
+  t public.profile_media_trash%rowtype;
+  current_path text;
+begin
+  select * into t from public.profile_media_trash where id=p_trash_id for update;
+  if t.id is null then raise exception 'Bild nicht gefunden'; end if;
+  if uid<>t.owner_id and not private.is_admin() then raise exception 'Keine Berechtigung'; end if;
+
+  if t.media_type='avatar' then
+    select avatar_path into current_path from public.profiles where id=t.owner_id for update;
+    if current_path is not null then raise exception 'Es ist bereits ein neues Profilbild gesetzt'; end if;
+    update public.profiles set avatar_path=t.storage_path where id=t.owner_id;
+  else
+    select photo_path into current_path from public.vehicles where user_id=t.owner_id for update;
+    if current_path is not null then raise exception 'Es ist bereits ein neues Fahrzeugbild gesetzt'; end if;
+    update public.vehicles set photo_path=t.storage_path where user_id=t.owner_id;
+  end if;
+
+  delete from public.profile_media_trash where id=t.id;
+  insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+  values(uid,'profile_media_restore','profile_media',t.id::text,
+    jsonb_build_object('owner_id',t.owner_id,'media_type',t.media_type,'storage_path',t.storage_path));
+  return true;
+end;
+$fn$;
+
+create or replace function public.delete_primary_media_permanently(p_trash_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path=public,private
+as $fn$
+declare
+  uid uuid:=auth.uid();
+  t public.profile_media_trash%rowtype;
+begin
+  select * into t from public.profile_media_trash where id=p_trash_id for update;
+  if t.id is null then return true; end if;
+  if uid<>t.owner_id and not private.is_admin() then raise exception 'Keine Berechtigung'; end if;
+
+  delete from public.profile_media_trash where id=t.id;
+  insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+  values(uid,'profile_media_delete_permanent','profile_media',t.id::text,
+    jsonb_build_object('owner_id',t.owner_id,'media_type',t.media_type,'bucket',t.bucket,'storage_path',t.storage_path));
+  return true;
+end;
+$fn$;
+
+revoke all on function public.trash_primary_media(uuid,text) from public;
+revoke all on function public.restore_primary_media(uuid) from public;
+revoke all on function public.delete_primary_media_permanently(uuid) from public;
+grant execute on function public.trash_primary_media(uuid,text) to authenticated;
+grant execute on function public.restore_primary_media(uuid) to authenticated;
+grant execute on function public.delete_primary_media_permanently(uuid) to authenticated;
 
 create or replace function public.trash_gallery_item(p_id uuid)
 returns table(storage_path text, deleted_at timestamptz)
