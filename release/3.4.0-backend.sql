@@ -720,3 +720,21 @@ select cron.schedule(
   );
   $job$
 );
+
+
+-- Final privilege hardening and FK indexes.
+create index if not exists crew_places_created_by_idx on public.crew_places(created_by);
+create index if not exists gallery_items_deleted_by_idx on public.gallery_items(deleted_by);
+create index if not exists profile_media_trash_deleted_by_idx on public.profile_media_trash(deleted_by);
+create index if not exists support_internal_notes_author_idx on public.support_internal_notes(author_id);
+create index if not exists support_ticket_events_actor_idx on public.support_ticket_events(actor_id);
+
+revoke execute on function public.trash_gallery_item(uuid) from anon;
+revoke execute on function public.restore_gallery_item(uuid) from anon;
+revoke execute on function public.delete_gallery_row_permanently(uuid) from anon;
+revoke execute on function public.trash_primary_media(uuid,text) from anon;
+revoke execute on function public.restore_primary_media(uuid) from anon;
+revoke execute on function public.delete_primary_media_permanently(uuid) from anon;
+revoke execute on function public.claim_support_ticket(uuid) from anon;
+revoke execute on function public.set_support_ticket_status(uuid,text) from anon;
+revoke execute on function public.close_support_ticket(uuid) from anon;
