@@ -462,6 +462,70 @@ create trigger crew_places_audit
 after insert or update or delete on public.crew_places
 for each row execute function private.audit_crew_place_change();
 
+grant select,insert,update on public.user_preferences to authenticated;
+grant select,insert,update,delete on public.crew_places to authenticated;
+grant select,insert,update,delete on public.app_notification_reads to authenticated;
+grant select,insert on public.support_internal_notes to authenticated;
+grant select on public.support_ticket_events to authenticated;
+
+-- Ticket status changes are only allowed through the explicit workflow RPCs.
+revoke update on public.support_tickets from authenticated;
+grant select,insert on public.support_tickets to authenticated;
+
+create or replace function private.audit_profile_role_labels()
+returns trigger
+language plpgsql
+security definer
+set search_path=public
+as $fn$
+begin
+  if old.role is distinct from new.role or old.labels is distinct from new.labels then
+    insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+    values(
+      auth.uid(),'profile_admin_change','profile',new.id::text,
+      jsonb_build_object('name',new.display_name,'old_role',old.role,'new_role',new.role,'old_labels',old.labels,'new_labels',new.labels)
+    );
+  end if;
+  return new;
+end;
+$fn$;
+
+drop trigger if exists profiles_admin_audit on public.profiles;
+create trigger profiles_admin_audit
+after update on public.profiles
+for each row execute function private.audit_profile_role_labels();
+
+create or replace function private.audit_content_admin_change()
+returns trigger
+language plpgsql
+security definer
+set search_path=public
+as $fn$
+declare
+  row_json jsonb:=case when tg_op='DELETE' then to_jsonb(old) else to_jsonb(new) end;
+  entity_uuid text:=coalesce(row_json->>'id','');
+  action_name text;
+begin
+  if tg_table_name='events' then action_name:=case when tg_op='INSERT' then 'event_create' else 'event_delete' end;
+  else action_name:=case when tg_op='INSERT' then 'announcement_create' else 'announcement_delete' end;
+  end if;
+  insert into public.audit_log(actor_id,action,entity_type,entity_id,details)
+  values(auth.uid(),action_name,tg_table_name,entity_uuid,
+    jsonb_build_object('title',coalesce(row_json->>'name',row_json->>'title','')));
+  return case when tg_op='DELETE' then old else new end;
+end;
+$fn$;
+
+drop trigger if exists events_admin_audit on public.events;
+create trigger events_admin_audit
+after insert or delete on public.events
+for each row execute function private.audit_content_admin_change();
+
+drop trigger if exists announcements_admin_audit on public.announcements;
+create trigger announcements_admin_audit
+after insert or delete on public.announcements
+for each row execute function private.audit_content_admin_change();
+
 do $do$
 begin
   if not exists (
