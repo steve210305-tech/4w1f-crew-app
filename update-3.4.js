@@ -71,27 +71,57 @@
   const loadServerState340Prev=loadServerState;
   loadServerState=async function(){await loadServerState340Prev();await load340Extras()};
 
-  function audioContext340(){if(!audioCtx340){const A=window.AudioContext||window.webkitAudioContext;if(A)audioCtx340=new A()}return audioCtx340}
-  function tone340(ctx,type,start,duration,f1,f2,volume=.08){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.type=type;o.frequency.setValueAtTime(f1,start);if(f2)o.frequency.exponentialRampToValueAtTime(Math.max(1,f2),start+duration);g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(volume,start+.015);g.gain.exponentialRampToValueAtTime(.0001,start+duration);o.connect(g).connect(ctx.destination);o.start(start);o.stop(start+duration+.02)
+  const soundFiles341={
+    engine_start:'engine_start.mp3',
+    v8:'v8.mp3',
+    turbo:'turbo.mp3',
+    shift:'shift.mp3',
+    horn:'horn.mp3',
+    subtle:'subtle.mp3',
+    dispatch:'dispatch.mp3'
+  };
+  const soundBuffers341=new Map();
+  let audioContext341=null;
+
+  function getAudioContext341(){
+    if(!audioContext341){
+      const A=window.AudioContext||window.webkitAudioContext;
+      if(A)audioContext341=new A();
+    }
+    return audioContext341;
   }
-  function playSound340(name,force=false){
-    const p=prefs340();if(!force&&!p.sound_enabled)return;const ctx=audioContext340();if(!ctx)return;try{ctx.resume()}catch{}const t=ctx.currentTime+.015;
-    if(name==='mute')return;
-    if(name==='dispatch'){tone340(ctx,'sine',t,.11,660,660,.08);tone340(ctx,'sine',t+.15,.11,880,880,.08);tone340(ctx,'sine',t+.30,.16,740,740,.09);return}
-    if(name==='subtle'){tone340(ctx,'sine',t,.18,760,1080,.06);return}
-    if(name==='horn'){tone340(ctx,'square',t,.34,390,390,.045);tone340(ctx,'square',t,.34,490,490,.035);return}
-    if(name==='turbo'){tone340(ctx,'sine',t,.28,260,1500,.045);tone340(ctx,'triangle',t+.22,.17,1600,520,.035);return}
-    if(name==='shift'){tone340(ctx,'sawtooth',t,.08,120,75,.07);tone340(ctx,'sine',t+.09,.11,980,440,.04);return}
-    if(name==='v8'){for(let i=0;i<7;i++)tone340(ctx,'sawtooth',t+i*.055,.09,68+(i%2)*7,62,.035);return}
-    tone340(ctx,'sawtooth',t,.42,48,128,.055);tone340(ctx,'triangle',t+.18,.32,96,165,.035)
+  function soundUrl341(name){
+    const file=soundFiles341[name];if(!file)return null;
+    return sb.storage.from('app-audio').getPublicUrl(`3.4.1/${file}`).data.publicUrl;
+  }
+  async function loadSound341(name){
+    if(soundBuffers341.has(name))return soundBuffers341.get(name);
+    const ctx=getAudioContext341(),url=soundUrl341(name);if(!ctx||!url)return null;
+    const res=await fetch(url,{cache:'force-cache'});if(!res.ok)throw new Error(`Sound ${name} konnte nicht geladen werden`);
+    const buf=await ctx.decodeAudioData(await res.arrayBuffer());
+    soundBuffers341.set(name,buf);return buf;
+  }
+  async function playSound340(name,force=false){
+    const p=prefs340();if(name==='mute'||(!force&&!p.sound_enabled))return;
+    const ctx=getAudioContext341();if(!ctx)return;
+    try{
+      if(ctx.state!=='running')await ctx.resume();
+      const buf=await loadSound341(name);if(!buf)return;
+      const src=ctx.createBufferSource(),gain=ctx.createGain();
+      src.buffer=buf;gain.gain.value=name==='dispatch'?.78:.88;
+      src.connect(gain).connect(ctx.destination);src.start(0);
+    }catch(e){console.warn('[4W1F audio]',e)}
   }
   function playNotification340(kind='general'){
     const p=prefs340();
     if(kind==='support'){if(p.support_sound_enabled)playSound340(p.support_sound||'dispatch',true)}
     else playSound340(p.notification_sound||'engine_start');
   }
-  const unlock340=()=>{const c=audioContext340();try{c?.resume()}catch{}};
+  const unlock340=()=>{
+    const ctx=getAudioContext341();
+    try{ctx?.resume()}catch{}
+    Object.keys(soundFiles341).forEach(name=>loadSound341(name).catch(()=>{}));
+  };
   window.addEventListener('pointerdown',unlock340,{once:true,passive:true});
 
   async function savePrefs340(patch){
@@ -110,7 +140,7 @@
     ];
     openModal('Benachrichtigungssounds',`<div class="notice">Diese Auswahl gilt für Sounds <b>innerhalb der geöffneten 4W1F-App</b>. Der Ton von System-Pushs außerhalb der App wird vom Handy/Betriebssystem gesteuert.</div>
       <div class="switchrow"><span>In-App Benachrichtigungssounds</span><button class="switch ${p.sound_enabled?'on':''}" id="soundEnabled340"></button></div>
-      <div class="section"><div class="sectionhead"><h2>Normaler Sound</h2></div><div class="sound-grid340">${sounds.map(s=>`<button class="card sound-card340 ${p.notification_sound===s[0]?'active':''}" data-sound340="${s[0]}"><b>${s[1]}</b><span>${s[2]}</span></button>`).join('')}</div></div>
+      <div class="section"><div class="sectionhead"><h2>Normaler Sound</h2></div><div class="sound-grid340">${sounds.map(s=>`<button class="card sound-card340 ${p.notification_sound===s[0]?'active':''}" data-sound340="${s[0]}"><b>${s[1]}</b><span>${s[2]}${s[0]!=='mute'?' · ▶ Anhören':''}</span></button>`).join('')}</div></div>
       <div class="section"><div class="sectionhead"><h2>Support</h2></div><div class="card pad"><b>4W1F Support Dispatch</b><div class="muted small">Eigener Ton, sobald ein neues Support-Ticket für dich als Admin/Owner eingeht.</div><div class="actions"><button class="btn outline sm" id="previewSupport340">Anhören</button><button class="switch ${p.support_sound_enabled?'on':''}" id="supportSoundEnabled340"></button></div></div></div>
       <button class="btn primary wide" id="saveSounds340" style="margin-top:12px">Speichern</button>`,()=>{
       let selected=p.notification_sound,enabled=p.sound_enabled,supportEnabled=p.support_sound_enabled;
