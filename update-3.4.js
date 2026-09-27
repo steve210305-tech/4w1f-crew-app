@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.6';
-  const RELEASE_BUILD_340='2026-09-27.2';
+  const RELEASE_VERSION_340='3.4.7';
+  const RELEASE_BUILD_340='2026-09-27.3';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'support_terminal_d',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -429,13 +429,17 @@
     const system=[{type:'system',key:`release:${RELEASE_VERSION_340}`,id:RELEASE_VERSION_340,title:`Update ${RELEASE_VERSION_340}`,sub:'Sieh dir kurz an, was sich in der App geändert hat.',time:'System',unread:!releaseSeenRes.data}];
     const all=[...anns,...supports,...events,...system];
     const label={all:'Alle',announcement:'Ankündigungen',support:'Support',event:'Events',system:'System'};
+    let showRead347=false,activeType347='all';
     const draw=type=>{
-      const rows=(type==='all'?all:all.filter(x=>x.type===type));
-      $('#notifList340').innerHTML=rows.map(x=>`<button class="card ticket-row clickable notif-item340 ${x.unread?'unread':''}" data-notif340="${x.type}|${x.id}"><div class="ticket-top"><b>${x.unread?'<span class="notif-dot340">●</span> ':''}${esc340(x.title)}</b><span class="label function">${label[x.type]}</span></div><div class="muted tiny">${esc340(x.sub)}${x.time?` · ${esc340(x.time)}`:''}</div></button>`).join('')||'<div class="notice">Hier ist gerade nichts Neues.</div>';
-      $$('[data-notif340]').forEach(b=>b.onclick=async()=>{const [kind,id]=b.dataset.notif340.split('|');if(kind==='announcement'){closeModal();openAnnouncementDetail(id)}else if(kind==='support'){closeModal();window.__4w1fOpenSupportTicket340(id)}else if(kind==='event'){await markGenericRead340(`event:${id}`);closeModal();openEventDetail(id)}else{await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal();showReleaseNotes340(true)}})
+      activeType347=type;
+      const scoped=(type==='all'?all:all.filter(x=>x.type===type));
+      const rows=showRead347?scoped:scoped.filter(x=>x.unread);
+      $('#notifList340').innerHTML=rows.map(x=>`<button class="card ticket-row clickable notif-item340 ${x.unread?'unread':''}" data-notif340="${x.type}|${x.id}"><div class="ticket-top"><b>${x.unread?'<span class="notif-dot340">●</span> ':''}${esc340(x.title)}</b><span class="label function">${label[x.type]}</span></div><div class="muted tiny">${esc340(x.sub)}${x.time?` · ${esc340(x.time)}`:''}</div></button>`).join('')||`<div class="notice">${showRead347?'In diesem Bereich gibt es noch keine Meldungen.':'Alles erledigt – hier ist gerade nichts offen. ✅'}</div>`;
+      $('[data-notif340]').forEach(b=>b.onclick=async()=>{const [kind,id]=b.dataset.notif340.split('|');if(kind==='announcement'){closeModal();openAnnouncementDetail(id)}else if(kind==='support'){closeModal();window.__4w1fOpenSupportTicket340(id)}else if(kind==='event'){await markGenericRead340(`event:${id}`);closeModal();openEventDetail(id)}else{await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal();showReleaseNotes340(true)}})
     };
-    openModal('Benachrichtigungen',`<div class="notif-tabs340">${['all','announcement','support','event','system'].map((x,i)=>`<button class="btn ${i===0?'primary':'outline'} sm" data-ntab340="${x}">${label[x]}</button>`).join('')}</div><div class="list" id="notifList340"></div><div class="section actions"><button class="btn outline" id="markAllNotif340">Alles gelesen</button><button class="btn outline" id="notifSounds340">🔊 Sounds</button></div>`,()=>{
-      draw('all');$$('[data-ntab340]').forEach(b=>b.onclick=()=>{$$('[data-ntab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});draw(b.dataset.ntab340)});
+    openModal('Benachrichtigungen',`<div class="notif-tabs340">${['all','announcement','support','event','system'].map((x,i)=>`<button class="btn ${i===0?'primary':'outline'} sm" data-ntab340="${x}">${label[x]}</button>`).join('')}</div><div class="list" id="notifList340"></div><div class="section actions"><button class="btn outline" id="markAllNotif340">Alles gelesen</button><button class="btn outline" id="toggleReadNotif347">Gelesene anzeigen</button><button class="btn outline" id="notifSounds340">🔊 Sounds</button></div>`,()=>{
+      draw('all');$('[data-ntab340]').forEach(b=>b.onclick=()=>{$('[data-ntab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});draw(b.dataset.ntab340)});
+      $('#toggleReadNotif347').onclick=()=>{showRead347=!showRead347;$('#toggleReadNotif347').textContent=showRead347?'Gelesene ausblenden':'Gelesene anzeigen';draw(activeType347)};
       $('#notifSounds340').onclick=()=>{closeModal();openSoundSettings340()};
       $('#markAllNotif340').onclick=async()=>{
         for(const a of state.announcements||[]){
@@ -759,6 +763,19 @@
         grid.appendChild(b);b.onclick=()=>openAdminTrash346('all');
       }
     },100);
+  };
+
+
+  // 3.4.7 — bell badge equals the number of currently open notifications.
+  updateBadge=function(){
+    const uid=me()?.id,b=$('#notifBadge');if(!uid||!b)return;
+    const generic=state.notificationReads340||new Map();
+    const announcementCount=unreadAnnouncements().length;
+    const supportCount=Number(state.supportUnread||0);
+    const eventCount=(state.events||[]).filter(e=>e.past!==true).slice(0,20).filter(e=>!generic.has(`event:${e.id}`)).length;
+    const systemCount=generic.has(`release:${RELEASE_VERSION_340}`)?0:1;
+    const n=announcementCount+supportCount+eventCount+systemCount;
+    b.textContent=n;b.classList.toggle('hidden',n===0);$('#notifBtn')?.classList.toggle('has-unread',n>0);
   };
 
 })();
