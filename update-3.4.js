@@ -765,4 +765,17 @@
     },100);
   };
 
+
+  // 3.4.7 — bell badge equals the number of currently open notifications.
+  updateBadge=function(){
+    const uid=me()?.id,b=$('#notifBadge');if(!uid||!b)return;
+    const generic=state.notificationReads340||new Map();
+    const announcementCount=unreadAnnouncements().length;
+    const supportCount=Number(state.supportUnread||0);
+    const eventCount=(state.events||[]).filter(e=>e.past!==true).slice(0,20).filter(e=>!generic.has(`event:${e.id}`)).length;
+    const systemCount=generic.has(`release:${RELEASE_VERSION_340}`)?0:1;
+    const n=announcementCount+supportCount+eventCount+systemCount;
+    b.textContent=n;b.classList.toggle('hidden',n===0);$('#notifBtn')?.classList.toggle('has-unread',n>0);
+  };
+
 })();
