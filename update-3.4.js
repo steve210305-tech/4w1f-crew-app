@@ -424,7 +424,7 @@
     ]);
     const ticketReads=new Map((readsRes.data||[]).map(x=>[x.ticket_id,new Date(x.last_read_at).getTime()])),generic=state.notificationReads340||new Map();
     const anns=(state.announcements||[]).filter(a=>!(a.hiddenBy||[]).includes(uid)).map(a=>({type:'announcement',key:`announcement:${a.id}`,id:a.id,title:a.title,sub:`${a.confirmRequired?'LESEPFLICHT · ':a.priority==='urgent'?'DRINGEND · ':''}${a.body||''}`,time:a.created||'',unread:a.confirmRequired?!(a.confirmedBy||[]).includes(uid):!(a.readBy||[]).includes(uid),protected:a.priority==='urgent'||a.confirmRequired}));
-    const supports=(ticketsRes.data||[]).map(t=>({type:'support',key:`support:${t.id}`,id:t.id,title:`Ticket #${t.ticket_no} · ${t.subject}`,sub:`${supportStatus340(t.status)} · ${t.channel==='owner'?'Owner':'Admin'} Support`,time:fmtAgo340(t.updated_at),unread:new Date(t.updated_at).getTime()>(ticketReads.get(t.id)||0)}));
+    const supports=(ticketsRes.data||[]).map(t=>({type:'support',key:`support:${t.id}`,id:t.id,title:`Ticket #${t.ticket_no} · ${t.subject}`,sub:`${t.priority==='urgent'?'DRINGEND · ':''}${supportStatus340(t.status)} · ${t.channel==='owner'?'Owner':'Admin'} Support`,time:fmtAgo340(t.updated_at),unread:new Date(t.updated_at).getTime()>(ticketReads.get(t.id)||0)}));
     const events=(state.events||[]).filter(e=>e.past!==true).slice(0,20).map(e=>({type:'event',key:`event:${e.id}`,id:e.id,title:e.name,sub:`${e.date||'Termin folgt'} · ${e.place||'Treffpunkt folgt'}`,time:e.time?e.time+' Uhr':'',unread:!generic.has(`event:${e.id}`)}));
     const system=[{type:'system',key:`release:${RELEASE_VERSION_340}`,id:RELEASE_VERSION_340,title:`Update ${RELEASE_VERSION_340}`,sub:'Sieh dir kurz an, was sich in der App geändert hat.',time:'System',unread:!releaseSeenRes.data}];
     const all=[...anns,...supports,...events,...system];
@@ -444,7 +444,7 @@
           if(!a.readBy.includes(uid))a.readBy.push(uid);
         }
         save();
-        const now=new Date().toISOString(),tickets=ticketsRes.data||[];if(tickets.length)await sb.from('support_ticket_reads').upsert(tickets.map(t=>({ticket_id:t.id,user_id:uid,last_read_at:now})),{onConflict:'ticket_id,user_id'});
+        const now=new Date().toISOString(),tickets=ticketsRes.data||[],bulkTickets=tickets.filter(t=>t.priority!=='urgent');if(bulkTickets.length)await sb.from('support_ticket_reads').upsert(bulkTickets.map(t=>({ticket_id:t.id,user_id:uid,last_read_at:now})),{onConflict:'ticket_id,user_id'});
         const genericRows=events.map(e=>({user_id:uid,notification_key:e.key,read_at:now}));if(genericRows.length)await sb.from('app_notification_reads').upsert(genericRows,{onConflict:'user_id,notification_key'});
         await sb.from('update_receipts').upsert({version:RELEASE_VERSION_340,user_id:uid,seen_at:now},{onConflict:'version,user_id'});
         closeModal();await loadServerState();updateBadge();toast('Normale Meldungen gelesen · Dringend & Lesepflicht bleiben offen');
