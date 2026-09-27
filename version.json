@@ -1,6 +1,6 @@
 {
-  "version": "3.4.5",
-  "build": "2026-09-27.1",
+  "version": "3.4.6",
+  "build": "2026-09-27.2",
   "published_at": "2026-09-27",
-  "channel": "hotfix-missed-update"
+  "channel": "admin-delete-tools"
 }

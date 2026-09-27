@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.5';
-  const RELEASE_BUILD_340='2026-09-27.1';
+  const RELEASE_VERSION_340='3.4.6';
+  const RELEASE_BUILD_340='2026-09-27.2';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'support_terminal_d',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -327,14 +327,14 @@
   const renderProfile340Prev=renderProfile;
   renderProfile=function(){
     renderProfile340Prev();
-    setTimeout(()=>{const grid=$('#view .admin-grid');if(grid&&!$('#profileSounds340')){const s=document.createElement('button');s.className='card admin-tool clickable';s.id='profileSounds340';s.innerHTML=`${I('bell')}<div><b>Sounds</b><br><span>Motor, Turbo & Support-Ton</span></div>`;grid.appendChild(s);s.onclick=openSoundSettings340}
+    setTimeout(()=>{const grid=$('#view .admin-grid');if(grid&&!$('#profileSounds340')){const s=document.createElement('button');s.className='card admin-tool clickable';s.id='profileSounds340';s.innerHTML=`${I('bell')}<div><b>Sounds</b><br><span>Motor, V8 & Support-Ton</span></div>`;grid.appendChild(s);s.onclick=openSoundSettings340}
       if(grid&&!$('#profileTrash340')){const t=document.createElement('button');t.className='card admin-tool clickable';t.id='profileTrash340';t.innerHTML=`${I('gallery')}<div><b>Bilder-Papierkorb</b><br><span>Gelöschte Bilder wiederherstellen</span></div>`;grid.appendChild(t);t.onclick=openPhotoTrash340}},40);
   };
 
   const supportStatus340=v=>({open:'Offen',in_progress:'In Bearbeitung',waiting_user:'Warten auf Nutzer',resolved:'Erledigt',closed:'Ticket geschlossen'})[v]||v;
   const supportPriority340=v=>({normal:'Normal',important:'Wichtig',urgent:'Dringend'})[v]||v;
   async function refreshSupportUnread340(){
-    const {data:tickets}=await sb.from('support_tickets').select('id,updated_at');
+    const {data:tickets}=await sb.from('support_tickets').select('id,updated_at').is('deleted_at',null);
     const {data:reads}=await sb.from('support_ticket_reads').select('ticket_id,last_read_at').eq('user_id',prodSession.user.id);
     const rm=new Map((reads||[]).map(r=>[r.ticket_id,new Date(r.last_read_at).getTime()]));
     state.supportUnread=(tickets||[]).filter(t=>new Date(t.updated_at).getTime()>(rm.get(t.id)||0)).length;
@@ -354,7 +354,7 @@
   }
 
   window.__4w1fOpenSupportTicket340=async function(ticketId){
-    const {data:t,error}=await sb.from('support_tickets').select('*').eq('id',ticketId).single();if(error||!t)return toast(error?.message||'Ticket nicht gefunden');
+    const {data:t,error}=await sb.from('support_tickets').select('*').eq('id',ticketId).is('deleted_at',null).single();if(error||!t)return toast(error?.message||'Ticket nicht gefunden');
     await markTicketRead340(ticketId);
     const [msgRes,noteRes,eventRes]=await Promise.all([
       sb.from('support_messages').select('*').eq('ticket_id',ticketId).order('created_at',{ascending:true}),
@@ -374,8 +374,8 @@
     openModal(`Ticket #${t.ticket_no}`,`<div class="card pad"><div class="eyebrow">${t.channel==='owner'?'Owner Support':'Admin Support'} · ${supportPriority340(t.priority)}</div><h3 style="margin:5px 0">${esc340(t.subject)}</h3><div class="muted tiny">${supportStatus340(t.status)} · von ${esc340(creator?.name||'Mitglied')} · ${fmtAgo340(t.created_at)}</div></div>${staffControls}<div class="section ticket-chat">${timelineHtml||'<div class="notice">Noch keine Nachrichten.</div>'}</div>${t.status!=='closed'?`<div class="section"><div class="field"><label>Antwort</label><textarea id="ticketReply340" placeholder="Nachricht schreiben …"></textarea></div><label class="btn outline wide">Bild anhängen<input hidden type="file" accept="image/jpeg,image/png,image/webp" id="ticketAttachment340"></label><button class="btn primary wide" id="sendTicketReply340" style="margin-top:8px">Antwort senden</button>${staff&&t.status==='in_progress'?'<button class="btn outline wide" id="sendWaitReply340" style="margin-top:8px">Antwort senden · danach auf Nutzer warten</button>':''}</div>`:'<div class="notice" style="margin-top:10px">Dieses Ticket ist geschlossen. Zum erneuten Thema bitte ein neues Ticket erstellen.</div>'}${notesHtml}`,()=>{
       $('#claimTicket340')?.addEventListener('click',async()=>{const {error}=await sb.rpc('claim_support_ticket',{p_ticket_id:t.id});if(error)return toast(error.message);closeModal();await window.__4w1fOpenSupportTicket340(t.id);toast('Ticket übernommen · In Bearbeitung')});
       $$('[data-ticket-status340]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('set_support_ticket_status',{p_ticket_id:t.id,p_status:b.dataset.ticketStatus340});if(error)return toast(error.message);closeModal();await window.__4w1fOpenSupportTicket340(t.id)});
-      $('#closeTicket340')?.addEventListener('click',async()=>{if(!confirm('Ticket wirklich schließen? Nur diese Aktion setzt den Status auf „Ticket geschlossen“.'))return;const {error}=await sb.rpc('close_support_ticket',{p_ticket_id:t.id});if(error)return toast(error.message);closeModal();await window.__4w1fOpenSupportTicket340(t.id)});
-      $('#closeOwnTicket340')?.addEventListener('click',async()=>{if(!confirm('Dein Ticket wirklich schließen?'))return;const {error}=await sb.rpc('close_support_ticket',{p_ticket_id:t.id});if(error)return toast(error.message);closeModal();await window.__4w1fOpenSupportTicket340(t.id)});
+      $('#closeTicket340')?.addEventListener('click',async()=>{if(!confirm('Ticket wirklich schließen? Es verschwindet danach aus der Inbox und liegt 7 Tage im Papierkorb.'))return;const {error}=await sb.rpc('close_support_ticket',{p_ticket_id:t.id});if(error)return toast(error.message);closeModal();await refreshSupportUnread340();await window.__4w1fOpenSupportCenter340();toast('Ticket geschlossen · 7 Tage im Papierkorb')});
+      $('#closeOwnTicket340')?.addEventListener('click',async()=>{if(!confirm('Dein Ticket wirklich schließen? Es wird aus deiner Ticketliste entfernt.'))return;const {error}=await sb.rpc('close_support_ticket',{p_ticket_id:t.id});if(error)return toast(error.message);closeModal();await refreshSupportUnread340();await window.__4w1fOpenSupportCenter340();toast('Ticket geschlossen')});
       $('#sendTicketReply340')?.addEventListener('click',()=>sendSupportReply340(t,$('#ticketReply340').value.trim(),$('#ticketAttachment340')?.files?.[0],false));
       $('#sendWaitReply340')?.addEventListener('click',()=>sendSupportReply340(t,$('#ticketReply340').value.trim(),$('#ticketAttachment340')?.files?.[0],true));
       $('#addSupportNote340')?.addEventListener('click',async()=>{const body=$('#supportNote340').value.trim();if(!body)return toast('Notiz ist leer');const {error}=await sb.from('support_internal_notes').insert({ticket_id:t.id,author_id:prodSession.user.id,body});if(error)return toast(error.message);closeModal();await window.__4w1fOpenSupportTicket340(t.id);toast('Interne Notiz gespeichert')});
@@ -394,12 +394,12 @@
   };
 
   window.__4w1fOpenSupportCenter340=async function(){
-    const {data,error}=await sb.from('support_tickets').select('*').order('updated_at',{ascending:false});if(error)return toast(error.message);
+    const {data,error}=await sb.from('support_tickets').select('*').is('deleted_at',null).order('updated_at',{ascending:false});if(error)return toast(error.message);
     const {data:reads}=await sb.from('support_ticket_reads').select('ticket_id,last_read_at').eq('user_id',prodSession.user.id),rm=new Map((reads||[]).map(r=>[r.ticket_id,new Date(r.last_read_at).getTime()]));
     const tickets=data||[],mine=tickets.filter(t=>t.created_by===prodSession.user.id),staff=isStaff340()?tickets:[];
     const renderRows=list=>list.map(t=>{const unread=new Date(t.updated_at).getTime()>(rm.get(t.id)||0),assignee=state.users.find(u=>u.id===t.assigned_to);return `<button class="card ticket-row clickable ${unread?'unread':''}" data-support340="${t.id}"><div class="ticket-top"><b>${unread?'● ':''}#${t.ticket_no} · ${esc340(t.subject)}</b><span class="ticket-status">${supportStatus340(t.status)}</span></div><div class="muted tiny">${t.channel==='owner'?'Owner':'Admin'} Support · ${supportPriority340(t.priority)}${assignee?` · ${esc340(assignee.name)}`:''} · ${fmtAgo340(t.updated_at)}</div></button>`}).join('')||'<div class="notice">Keine Tickets in diesem Bereich.</div>';
-    openModal('4W1F Support',`<button class="btn primary wide" id="supportNew340">+ Neues Ticket</button>${isStaff340()?`<div class="support-tabs" style="margin-top:10px"><button class="btn primary sm" data-support-tab340="staff">Support Inbox</button><button class="btn outline sm" data-support-tab340="mine">Meine Tickets</button></div><div class="list" id="supportList340">${renderRows(staff)}</div>`:`<div class="section"><div class="sectionhead"><h2>Meine Tickets</h2></div><div class="list">${renderRows(mine)}</div></div>`}`,()=>{
-      $('#supportNew340').onclick=()=>{closeModal();window.__4w1fCreateSupportTicket340()};
+    openModal('4W1F Support',`<button class="btn primary wide" id="supportNew340">+ Neues Ticket</button>${isStaff340()?'<button class="btn outline wide" id="supportTrash346" style="margin-top:8px">🗑 Geschlossene Tickets</button>':''}${isStaff340()?`<div class="support-tabs" style="margin-top:10px"><button class="btn primary sm" data-support-tab340="staff">Support Inbox</button><button class="btn outline sm" data-support-tab340="mine">Meine Tickets</button></div><div class="list" id="supportList340">${renderRows(staff)}</div>`:`<div class="section"><div class="sectionhead"><h2>Meine Tickets</h2></div><div class="list">${renderRows(mine)}</div></div>`}`,()=>{
+      $('#supportNew340').onclick=()=>{closeModal();window.__4w1fCreateSupportTicket340()};$('#supportTrash346')?.addEventListener('click',()=>{closeModal();openSupportTrash346()});
       const bind=()=>$$('[data-support340]').forEach(b=>b.onclick=()=>{closeModal();window.__4w1fOpenSupportTicket340(b.dataset.support340)});bind();
       $$('[data-support-tab340]').forEach(b=>b.onclick=()=>{$$('[data-support-tab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});$('#supportList340').innerHTML=renderRows(b.dataset.supportTab340==='mine'?mine:staff);bind()});
     });
@@ -418,7 +418,7 @@
     openModal('Benachrichtigungen','<div class="notice">Benachrichtigungen werden geladen…</div>');
     const uid=prodSession.user.id;
     const [ticketsRes,readsRes,releaseSeenRes]=await Promise.all([
-      sb.from('support_tickets').select('*').order('updated_at',{ascending:false}),
+      sb.from('support_tickets').select('*').is('deleted_at',null).order('updated_at',{ascending:false}),
       sb.from('support_ticket_reads').select('ticket_id,last_read_at').eq('user_id',uid),
       sb.from('update_receipts').select('version').eq('version',RELEASE_VERSION_340).eq('user_id',uid).maybeSingle()
     ]);
@@ -484,7 +484,7 @@
 
   async function openAudit340(){
     const {data,error}=await sb.from('audit_log').select('*').order('created_at',{ascending:false}).limit(200);if(error)return toast(error.message);const rows=data||[];
-    const names=new Map((state.users||[]).map(u=>[u.id,u.name])),labels={invite_claimed:'Einladung angenommen',invite_created:'Einladung erstellt',gallery_trash:'Bild gelöscht',gallery_restore:'Bild wiederhergestellt',gallery_delete_permanent:'Bild endgültig gelöscht',gallery_auto_purge:'Bild automatisch entfernt',support_claim:'Support-Ticket übernommen',support_status:'Ticket-Status geändert',support_close:'Ticket geschlossen',crew_place_create:'Crew-Ort erstellt',crew_place_update:'Crew-Ort geändert',crew_place_delete:'Crew-Ort gelöscht',profile_admin_change:'Rolle / Labels geändert',event_create:'Treffen erstellt',event_delete:'Treffen gelöscht',announcement_create:'Ankündigung erstellt',announcement_delete:'Ankündigung gelöscht'};
+    const names=new Map((state.users||[]).map(u=>[u.id,u.name])),labels={invite_claimed:'Einladung angenommen',invite_created:'Einladung erstellt',gallery_trash:'Bild gelöscht',gallery_restore:'Bild wiederhergestellt',gallery_delete_permanent:'Bild endgültig gelöscht',gallery_auto_purge:'Bild automatisch entfernt',support_claim:'Support-Ticket übernommen',support_status:'Ticket-Status geändert',support_close:'Ticket geschlossen',crew_place_create:'Crew-Ort erstellt',crew_place_update:'Crew-Ort geändert',crew_place_delete:'Crew-Ort gelöscht',profile_admin_change:'Rolle / Labels geändert',event_create:'Treffen erstellt',event_delete:'Treffen gelöscht',announcement_create:'Ankündigung erstellt',announcement_delete:'Ankündigung gelöscht',event_trash:'Event in Papierkorb',event_restore:'Event wiederhergestellt',event_delete_permanent:'Event endgültig gelöscht',event_auto_purge:'Event automatisch gelöscht',project_trash:'Projekt in Papierkorb',project_restore:'Projekt wiederhergestellt',project_delete_permanent:'Projekt endgültig gelöscht',project_auto_purge:'Projekt automatisch gelöscht',gallery_album_trash:'Galerie-Album in Papierkorb',gallery_album_restore:'Galerie-Album wiederhergestellt',gallery_album_delete_permanent:'Galerie-Album endgültig gelöscht',gallery_album_auto_purge:'Galerie-Album automatisch gelöscht',support_close_trash:'Ticket geschlossen / Papierkorb',support_restore:'Ticket wiederhergestellt',support_delete_permanent:'Ticket endgültig gelöscht',support_auto_purge:'Ticket automatisch gelöscht'};
     openModal('Admin-Aktivitätsverlauf',`<div class="notice">Serverseitiger Verlauf wichtiger Verwaltungsaktionen. Die Einträge dienen der Nachvollziehbarkeit und können nicht über diese Ansicht verändert werden.</div><div class="section list">${rows.map(a=>`<div class="card audit-row340"><b>${esc340(labels[a.action]||a.action)}</b><div class="small">${esc340(names.get(a.actor_id)|| (a.actor_id?'Unbekannter Admin':'System'))}</div><div class="meta">${fmtAgo340(a.created_at)} · ${esc340(a.entity_type||'System')}${a.entity_id?` · ${esc340(a.entity_id)}`:''}</div></div>`).join('')||'<div class="notice">Noch keine Aktivitäten protokolliert.</div>'}</div>`);
   }
 
@@ -616,6 +616,149 @@
         closeModal();openAnnouncementDetail(id);
       };
     },35);
+  };
+
+
+  // 3.4.6 — Admin delete tools with 7-day recovery.
+  const style346=document.createElement('style');
+  style346.textContent=`
+    .admin-delete346{margin-top:10px}
+    .album-delete346{position:absolute;right:8px;top:8px;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:rgba(255,77,94,.14);border:1px solid rgba(255,77,94,.42);z-index:4;font-size:14px}
+    .gallery-event{position:relative}
+    .trash-row346{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+    .trash-row346 .actions{justify-content:flex-end}
+    .trash-meta346{font-size:10px;color:var(--muted);margin-top:4px}
+  `;
+  document.head.appendChild(style346);
+
+  const daysLeft346=deletedAt=>Math.max(0,7-Math.floor(Math.max(0,Date.now()-new Date(deletedAt).getTime())/86400000));
+
+  const loadServerState346Prev=loadServerState;
+  loadServerState=async function(){
+    await loadServerState346Prev();
+    const {data,error}=await sb.from('gallery_album_trash').select('event_id,deleted_at,purged_at');
+    state.deletedAlbumIds346=new Set((error?[]:(data||[])).map(x=>x.event_id));
+    await refreshSupportUnread340();
+  };
+
+  async function trashEvent346(id){
+    const e=state.events.find(x=>x.id===id);
+    if(!e||!isAdmin())return;
+    if(!confirm(`Event „${e.name}“ löschen? Es bleibt 7 Tage wiederherstellbar.`))return;
+    const {error}=await sb.rpc('trash_event',{p_id:id});if(error)return toast(error.message);
+    closeModal();await loadServerState();page='events';render();toast('Event im Papierkorb');
+  }
+
+  const openEventDetail346Prev=openEventDetail;
+  openEventDetail=function(id){
+    openEventDetail346Prev(id);
+    if(!isAdmin())return;
+    setTimeout(()=>{
+      const sheet=$('#sheet');if(!sheet||$('#deleteEvent346'))return;
+      const box=document.createElement('div');box.className='section admin-delete346';
+      box.innerHTML='<button class="btn bad wide" id="deleteEvent346">🗑 Event löschen</button><div class="muted tiny" style="margin-top:6px">7 Tage wiederherstellbar.</div>';
+      sheet.appendChild(box);
+      $('#deleteEvent346').onclick=()=>trashEvent346(id);
+    },30);
+  };
+
+  const openProjectAdmin346Prev=openProjectAdmin;
+  openProjectAdmin=function(){
+    openProjectAdmin346Prev();
+    setTimeout(()=>{
+      $$('[data-delete-project]').forEach(old=>{
+        const id=old.dataset.deleteProject,clone=old.cloneNode(true);
+        old.replaceWith(clone);
+        clone.onclick=async()=>{
+          const p=state.projects.find(x=>x.id===id);if(!p||!confirm(`Projekt „${p.title}“ löschen? Es bleibt 7 Tage wiederherstellbar.`))return;
+          const {error}=await sb.rpc('trash_project',{p_id:id});if(error)return toast(error.message);
+          closeModal();await loadServerState();openProjectAdmin();toast('Projekt im Papierkorb');
+        };
+      });
+      const head=$('#sheet .sheethead');if(head&&!$('#projectTrash346')){
+        const b=document.createElement('button');b.className='btn outline sm';b.id='projectTrash346';b.textContent='Papierkorb';
+        const h2=head.querySelector('h2');h2?.insertAdjacentElement('afterend',b);b.onclick=()=>{closeModal();openAdminTrash346('project')};
+      }
+    },40);
+  };
+
+  function patchGalleryAlbums346(){
+    const deleted=state.deletedAlbumIds346||new Set();
+    $$('[data-gallery-event]').forEach(card=>{
+      const id=card.dataset.galleryEvent;
+      if(deleted.has(id)){card.remove();return}
+      if(!isAdmin()||card.querySelector('.album-delete346'))return;
+      const del=document.createElement('span');del.className='album-delete346';del.setAttribute('role','button');del.setAttribute('aria-label','Album löschen');del.textContent='🗑';
+      del.onclick=async ev=>{
+        ev.preventDefault();ev.stopPropagation();
+        const e=state.events.find(x=>x.id===id);if(!confirm(`Galerie-Album „${e?.name||'Event'}“ löschen? Zugehörige Bilder landen 7 Tage im Papierkorb.`))return;
+        const {error}=await sb.rpc('trash_gallery_album',{p_event_id:id});if(error)return toast(error.message);
+        await loadServerState();renderGallery();toast('Album im Papierkorb');
+      };
+      card.appendChild(del);
+    });
+  }
+
+  const renderGallery346Prev=renderGallery;
+  renderGallery=function(){renderGallery346Prev();setTimeout(patchGalleryAlbums346,30)};
+
+  async function purgeSupportTicket346(t){
+    const {data:msgs}=await sb.from('support_messages').select('attachment_path').eq('ticket_id',t.id).not('attachment_path','is',null);
+    const paths=(msgs||[]).map(x=>x.attachment_path).filter(Boolean);
+    if(paths.length){const rm=await sb.storage.from('support-media').remove(paths);if(rm.error)return toast(rm.error.message)}
+    const {error}=await sb.rpc('delete_support_ticket_permanently',{p_ticket_id:t.id});if(error)return toast(error.message);
+    return true;
+  }
+
+  async function openSupportTrash346(){
+    if(!isStaff340())return;
+    const {data,error}=await sb.from('support_tickets').select('*').not('deleted_at','is',null).order('deleted_at',{ascending:false});
+    if(error)return toast(error.message);const rows=data||[];
+    openModal('Geschlossene Tickets',`<div class="notice">Geschlossene Tickets verschwinden sofort aus der Inbox und werden nach <b>7 Tagen</b> mit Nachrichten, internen Notizen und Anhängen endgültig entfernt.</div><div class="section list">${rows.map(t=>`<div class="card pad trash-row346"><div><b>#${t.ticket_no} · ${esc340(t.subject)}</b><div class="trash-meta346">${supportPriority340(t.priority)} · noch ca. ${daysLeft346(t.deleted_at)} Tag${daysLeft346(t.deleted_at)===1?'':'e'}</div></div><div class="actions"><button class="btn good sm" data-restore-ticket346="${t.id}">Wiederherstellen</button><button class="btn bad sm" data-purge-ticket346="${t.id}">Endgültig</button></div></div>`).join('')||'<div class="notice">Keine geschlossenen Tickets im Papierkorb.</div>'}</div>`,()=>{
+      $$('[data-restore-ticket346]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_support_ticket',{p_ticket_id:b.dataset.restoreTicket346});if(error)return toast(error.message);closeModal();await loadServerState();window.__4w1fOpenSupportCenter340();toast('Ticket wieder geöffnet')});
+      $$('[data-purge-ticket346]').forEach(b=>b.onclick=async()=>{const t=rows.find(x=>x.id===b.dataset.purgeTicket346);if(!t||!confirm('Ticket endgültig löschen? Das kann nicht rückgängig gemacht werden.'))return;const ok=await purgeSupportTicket346(t);if(!ok)return;closeModal();await loadServerState();openSupportTrash346();toast('Ticket endgültig gelöscht')});
+    });
+  }
+
+  async function openAdminTrash346(focus='all'){
+    if(!isAdmin())return;
+    const [er,pr,ar,tr]=await Promise.all([
+      sb.from('events').select('id,title,deleted_at,cover_path').not('deleted_at','is',null).order('deleted_at',{ascending:false}),
+      sb.from('crew_projects').select('id,title,deleted_at').not('deleted_at','is',null).order('deleted_at',{ascending:false}),
+      sb.from('gallery_album_trash').select('event_id,deleted_at,purged_at').order('deleted_at',{ascending:false}),
+      sb.from('support_tickets').select('id,ticket_no,subject,priority,deleted_at').not('deleted_at','is',null).order('deleted_at',{ascending:false})
+    ]);
+    const err=er.error||pr.error||ar.error||tr.error;if(err)return toast(err.message);
+    const events=er.data||[],projects=pr.data||[],albums=ar.data||[],tickets=tr.data||[];
+    const eventTitle=new Map((await sb.from('events').select('id,title')).data?.map(x=>[x.id,x.title])||[]);
+    const sec=(key,title,html)=>focus!=='all'&&focus!==key?'':`<div class="section"><div class="sectionhead"><h2>${title}</h2></div><div class="list">${html||'<div class="notice">Papierkorb leer.</div>'}</div></div>`;
+    const eventHtml=events.map(x=>`<div class="card pad trash-row346"><div><b>${esc340(x.title)}</b><div class="trash-meta346">Event · noch ca. ${daysLeft346(x.deleted_at)} Tage</div></div><div class="actions"><button class="btn good sm" data-restore-event346="${x.id}">Wiederherstellen</button><button class="btn bad sm" data-purge-event346="${x.id}">Endgültig</button></div></div>`).join('');
+    const projectHtml=projects.map(x=>`<div class="card pad trash-row346"><div><b>${esc340(x.title)}</b><div class="trash-meta346">Projekt · noch ca. ${daysLeft346(x.deleted_at)} Tage</div></div><div class="actions"><button class="btn good sm" data-restore-project346="${x.id}">Wiederherstellen</button><button class="btn bad sm" data-purge-project346="${x.id}">Endgültig</button></div></div>`).join('');
+    const albumHtml=albums.map(x=>`<div class="card pad trash-row346"><div><b>${esc340(eventTitle.get(x.event_id)||'Event-Album')}</b><div class="trash-meta346">Galerie-Album · ${x.purged_at?'endgültig gelöscht':'noch ca. '+daysLeft346(x.deleted_at)+' Tage'}</div></div><div class="actions">${x.purged_at?'':`<button class="btn good sm" data-restore-album346="${x.event_id}">Wiederherstellen</button><button class="btn bad sm" data-purge-album346="${x.event_id}">Endgültig</button>`}</div></div>`).join('');
+    const ticketHtml=tickets.map(x=>`<div class="card pad trash-row346"><div><b>#${x.ticket_no} · ${esc340(x.subject)}</b><div class="trash-meta346">Ticket · noch ca. ${daysLeft346(x.deleted_at)} Tage</div></div><div class="actions"><button class="btn good sm" data-restore-ticket346="${x.id}">Wiederherstellen</button><button class="btn bad sm" data-purge-ticket346="${x.id}">Endgültig</button></div></div>`).join('');
+    openModal('Admin-Papierkorb',`<div class="notice">Events, Projekte, Galerie-Alben und geschlossene Tickets bleiben <b>7 Tage</b> wiederherstellbar. Danach räumt das System sie automatisch auf.</div>${sec('event','Events',eventHtml)}${sec('project','Projekte',projectHtml)}${sec('album','Galerie-Alben',albumHtml)}${sec('ticket','Support-Tickets',ticketHtml)}`,()=>{
+      $$('[data-restore-event346]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_event',{p_id:b.dataset.restoreEvent346});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Event wiederhergestellt')});
+      $$('[data-purge-event346]').forEach(b=>b.onclick=async()=>{const x=events.find(e=>e.id===b.dataset.purgeEvent346);if(!x||!confirm('Event endgültig löschen?'))return;if(x.cover_path){const rm=await sb.storage.from('crew-media').remove([x.cover_path]);if(rm.error)return toast(rm.error.message)}const {error}=await sb.rpc('delete_event_permanently',{p_id:x.id});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Event endgültig gelöscht')});
+      $$('[data-restore-project346]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_project',{p_id:b.dataset.restoreProject346});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Projekt wiederhergestellt')});
+      $$('[data-purge-project346]').forEach(b=>b.onclick=async()=>{if(!confirm('Projekt endgültig löschen?'))return;const {error}=await sb.rpc('delete_project_permanently',{p_id:b.dataset.purgeProject346});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Projekt endgültig gelöscht')});
+      $$('[data-restore-album346]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_gallery_album',{p_event_id:b.dataset.restoreAlbum346});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Album wiederhergestellt')});
+      $$('[data-purge-album346]').forEach(b=>b.onclick=async()=>{const id=b.dataset.purgeAlbum346;if(!confirm('Galerie-Album endgültig löschen? Alle Album-Bilder werden entfernt.'))return;const marker='album:'+id;const {data:items,error:qe}=await sb.from('gallery_items').select('storage_path').eq('event_id',id).eq('deletion_reason',marker).not('deleted_at','is',null);if(qe)return toast(qe.message);const paths=(items||[]).map(x=>x.storage_path);if(paths.length){const rm=await sb.storage.from('crew-media').remove(paths);if(rm.error)return toast(rm.error.message)}const {error}=await sb.rpc('delete_gallery_album_permanently',{p_event_id:id});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Album endgültig gelöscht')});
+      $$('[data-restore-ticket346]').forEach(b=>b.onclick=async()=>{const {error}=await sb.rpc('restore_support_ticket',{p_ticket_id:b.dataset.restoreTicket346});if(error)return toast(error.message);closeModal();await loadServerState();openAdminTrash346(focus);toast('Ticket wieder geöffnet')});
+      $$('[data-purge-ticket346]').forEach(b=>b.onclick=async()=>{const t=tickets.find(x=>x.id===b.dataset.purgeTicket346);if(!t||!confirm('Ticket endgültig löschen?'))return;const ok=await purgeSupportTicket346(t);if(!ok)return;closeModal();await loadServerState();openAdminTrash346(focus);toast('Ticket endgültig gelöscht')});
+    });
+  }
+
+  const renderAdmin346Prev=renderAdmin;
+  renderAdmin=function(){
+    renderAdmin346Prev();
+    setTimeout(()=>{
+      const grid=$('#galleryAdmin')?.closest('.admin-grid')||$('#eventAdmin')?.closest('.admin-grid')||$('#securityAdmin')?.closest('.admin-grid');
+      if(grid&&!$('#adminTrash346')){
+        const b=document.createElement('button');b.className='card admin-tool clickable';b.id='adminTrash346';
+        b.innerHTML=`${I('gallery')}<div><b>Admin-Papierkorb</b><br><span>Events · Projekte · Alben · Tickets</span></div>`;
+        grid.appendChild(b);b.onclick=()=>openAdminTrash346('all');
+      }
+    },100);
   };
 
 })();
