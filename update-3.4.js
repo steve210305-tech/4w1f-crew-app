@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.4';
-  const RELEASE_BUILD_340='2026-09-26.1';
+  const RELEASE_VERSION_340='3.4.5';
+  const RELEASE_BUILD_340='2026-09-27.1';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'support_terminal_d',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
@@ -65,6 +65,9 @@
     state.crewPlaces340=placesRes.data||[];
     const pm=new Map((profilesRes.data||[]).map(x=>[x.id,x.privacy||privacyDefaults340]));(state.users||[]).forEach(u=>u._privacy=pm.get(u.id)||privacyDefaults340);
     state.notificationReads340=new Map((readsRes.data||[]).map(x=>[x.notification_key,x.read_at]));
+    await Promise.all((state.users||[]).map(async u=>{
+      u._avatarUrl345=u._avatarPath?await signed340('avatars',u._avatarPath,86400):null;
+    }));
     await refreshGallery340();
   }
 
@@ -420,7 +423,7 @@
       sb.from('update_receipts').select('version').eq('version',RELEASE_VERSION_340).eq('user_id',uid).maybeSingle()
     ]);
     const ticketReads=new Map((readsRes.data||[]).map(x=>[x.ticket_id,new Date(x.last_read_at).getTime()])),generic=state.notificationReads340||new Map();
-    const anns=(state.announcements||[]).filter(a=>!(a.hiddenBy||[]).includes(uid)).map(a=>({type:'announcement',key:`announcement:${a.id}`,id:a.id,title:a.title,sub:a.body||'',time:a.created||'',unread:!(a.readBy||[]).includes(uid)}));
+    const anns=(state.announcements||[]).filter(a=>!(a.hiddenBy||[]).includes(uid)).map(a=>({type:'announcement',key:`announcement:${a.id}`,id:a.id,title:a.title,sub:`${a.confirmRequired?'LESEPFLICHT · ':a.priority==='urgent'?'DRINGEND · ':''}${a.body||''}`,time:a.created||'',unread:a.confirmRequired?!(a.confirmedBy||[]).includes(uid):!(a.readBy||[]).includes(uid),protected:a.priority==='urgent'||a.confirmRequired}));
     const supports=(ticketsRes.data||[]).map(t=>({type:'support',key:`support:${t.id}`,id:t.id,title:`Ticket #${t.ticket_no} · ${t.subject}`,sub:`${supportStatus340(t.status)} · ${t.channel==='owner'?'Owner':'Admin'} Support`,time:fmtAgo340(t.updated_at),unread:new Date(t.updated_at).getTime()>(ticketReads.get(t.id)||0)}));
     const events=(state.events||[]).filter(e=>e.past!==true).slice(0,20).map(e=>({type:'event',key:`event:${e.id}`,id:e.id,title:e.name,sub:`${e.date||'Termin folgt'} · ${e.place||'Treffpunkt folgt'}`,time:e.time?e.time+' Uhr':'',unread:!generic.has(`event:${e.id}`)}));
     const system=[{type:'system',key:`release:${RELEASE_VERSION_340}`,id:RELEASE_VERSION_340,title:`Update ${RELEASE_VERSION_340}`,sub:'Sieh dir kurz an, was sich in der App geändert hat.',time:'System',unread:!releaseSeenRes.data}];
@@ -429,17 +432,22 @@
     const draw=type=>{
       const rows=(type==='all'?all:all.filter(x=>x.type===type));
       $('#notifList340').innerHTML=rows.map(x=>`<button class="card ticket-row clickable notif-item340 ${x.unread?'unread':''}" data-notif340="${x.type}|${x.id}"><div class="ticket-top"><b>${x.unread?'<span class="notif-dot340">●</span> ':''}${esc340(x.title)}</b><span class="label function">${label[x.type]}</span></div><div class="muted tiny">${esc340(x.sub)}${x.time?` · ${esc340(x.time)}`:''}</div></button>`).join('')||'<div class="notice">Hier ist gerade nichts Neues.</div>';
-      $$('[data-notif340]').forEach(b=>b.onclick=async()=>{const [kind,id]=b.dataset.notif340.split('|');if(kind==='announcement'){const a=state.announcements.find(x=>x.id===id);a.readBy??=[];if(!a.readBy.includes(uid))a.readBy.push(uid);save();closeModal();openAnnouncementDetail(id)}else if(kind==='support'){closeModal();window.__4w1fOpenSupportTicket340(id)}else if(kind==='event'){await markGenericRead340(`event:${id}`);closeModal();openEventDetail(id)}else{await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal();showReleaseNotes340(true)}})
+      $$('[data-notif340]').forEach(b=>b.onclick=async()=>{const [kind,id]=b.dataset.notif340.split('|');if(kind==='announcement'){closeModal();openAnnouncementDetail(id)}else if(kind==='support'){closeModal();window.__4w1fOpenSupportTicket340(id)}else if(kind==='event'){await markGenericRead340(`event:${id}`);closeModal();openEventDetail(id)}else{await markGenericRead340(`release:${RELEASE_VERSION_340}`);closeModal();showReleaseNotes340(true)}})
     };
     openModal('Benachrichtigungen',`<div class="notif-tabs340">${['all','announcement','support','event','system'].map((x,i)=>`<button class="btn ${i===0?'primary':'outline'} sm" data-ntab340="${x}">${label[x]}</button>`).join('')}</div><div class="list" id="notifList340"></div><div class="section actions"><button class="btn outline" id="markAllNotif340">Alles gelesen</button><button class="btn outline" id="notifSounds340">🔊 Sounds</button></div>`,()=>{
       draw('all');$$('[data-ntab340]').forEach(b=>b.onclick=()=>{$$('[data-ntab340]').forEach(x=>{x.classList.toggle('primary',x===b);x.classList.toggle('outline',x!==b)});draw(b.dataset.ntab340)});
       $('#notifSounds340').onclick=()=>{closeModal();openSoundSettings340()};
       $('#markAllNotif340').onclick=async()=>{
-        for(const a of state.announcements||[]){a.readBy??=[];if(!a.readBy.includes(uid))a.readBy.push(uid)}save();
+        for(const a of state.announcements||[]){
+          if(a.priority==='urgent'||a.confirmRequired)continue;
+          a.readBy??=[];
+          if(!a.readBy.includes(uid))a.readBy.push(uid);
+        }
+        save();
         const now=new Date().toISOString(),tickets=ticketsRes.data||[];if(tickets.length)await sb.from('support_ticket_reads').upsert(tickets.map(t=>({ticket_id:t.id,user_id:uid,last_read_at:now})),{onConflict:'ticket_id,user_id'});
         const genericRows=events.map(e=>({user_id:uid,notification_key:e.key,read_at:now}));if(genericRows.length)await sb.from('app_notification_reads').upsert(genericRows,{onConflict:'user_id,notification_key'});
         await sb.from('update_receipts').upsert({version:RELEASE_VERSION_340,user_id:uid,seen_at:now},{onConflict:'version,user_id'});
-        closeModal();await loadServerState();updateBadge();toast('Alles als gelesen markiert');
+        closeModal();await loadServerState();updateBadge();toast('Normale Meldungen gelesen · Dringend & Lesepflicht bleiben offen');
       };
     });
   };
@@ -516,5 +524,98 @@
 
   const renderAdminImages340Prev=renderAdmin;
   renderAdmin=function(){renderAdminImages340Prev();setTimeout(()=>{const g=$('#galleryAdmin');if(g){g.querySelector('span')?.replaceChildren(document.createTextNode('Alle Uploads & Papierkorb'));g.onclick=()=>openImageManager340(true)}},80)};
+
+
+  // 3.4.5 — real member profile pictures + protected important announcements.
+  const style345=document.createElement('style');
+  style345.textContent=`
+    .member-avatar345{overflow:hidden!important;border-radius:50%!important;display:grid!important;place-items:center!important;flex:0 0 auto;background:#15151b}
+    .member-avatar345 img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;border-radius:inherit}
+    .member-avatar345 .member-placeholder345{display:grid;place-items:center;width:100%;height:100%;font-size:22px;color:#c7c3cf}
+    .read-required345{border-color:rgba(255,179,40,.48);background:rgba(255,179,40,.08);margin-top:10px}
+  `;
+  document.head.appendChild(style345);
+
+  function memberAvatar345(u){
+    return `<div class="avatar member-avatar345">${u?._avatarUrl345?`<img src="${u._avatarUrl345}" alt="Profilbild von ${esc340(u.name)}">`:'<span class="member-placeholder345" aria-label="Kein Profilbild">👤</span>'}</div>`;
+  }
+
+  // Keep the normal member renderer behavior, but use the selected profile image instead of role emojis.
+  memberRows=function(adminMode=false,q=''){
+    return state.users
+      .filter(u=>!q||`${u.name} ${u.car} ${u.ig} ${(u.labels||[]).join(' ')}`.toLowerCase().includes(q))
+      .map(u=>`<div class="card member-row clickable" ${adminMode?`data-admin-member="${u.id}"`:`data-member-detail="${u.id}"`}>${memberAvatar345(u)}<div class="member-info"><b>${esc340(u.name)}</b><span>${esc340(u.ig||'')} · ${esc340(u.car||'')}</span>${u.bio?`<div class="member-bio">${esc340(u.bio)}</div>`:''}<div class="member-tags">${(u.labels||[]).map(l=>`<span class="label function">${esc340(l)}</span>`).join('')}</div></div><div class="member-right"><span class="label ${u.role}">${roleLabel(u.role)}</span>${u.role==='owner'?'<span class="tiny muted">🔒 geschützt</span>':''}</div></div>`)
+      .join('');
+  };
+
+  function hydrateMemberAvatars345(root=document){
+    root?.querySelectorAll?.('[data-member-detail]').forEach(card=>{
+      const u=state.users.find(x=>x.id===card.dataset.memberDetail),old=card.querySelector('.avatar');
+      if(!u||!old)return;
+      const wrap=document.createElement('div');
+      wrap.innerHTML=memberAvatar345(u);
+      old.replaceWith(wrap.firstElementChild);
+    });
+  }
+
+  const renderMembers345Prev=renderMembers;
+  renderMembers=function(){
+    renderMembers345Prev();
+    hydrateMemberAvatars345($('#view'));
+  };
+
+  const renderHome345Prev=renderHome;
+  renderHome=function(){
+    renderHome345Prev();
+    hydrateMemberAvatars345($('#view'));
+  };
+
+  // Read-required announcements stay unread until the user explicitly confirms them.
+  const markRead345Prev=markRead;
+  markRead=function(id,force=false){
+    const a=state.announcements.find(x=>x.id===id),uid=me()?.id;
+    if(!a||!uid)return;
+    if(a.confirmRequired&&!(a.confirmedBy||[]).includes(uid)&&!force)return;
+    return markRead345Prev(id);
+  };
+
+  unreadAnnouncements=function(){
+    const uid=me()?.id;
+    if(!uid)return[];
+    return (state.announcements||[]).filter(a=>{
+      if((a.hiddenBy||[]).includes(uid))return false;
+      if(a.confirmRequired)return !(a.confirmedBy||[]).includes(uid);
+      return !(a.readBy||[]).includes(uid);
+    });
+  };
+
+  const openAnnouncementDetail345Prev=openAnnouncementDetail;
+  openAnnouncementDetail=function(id){
+    const a=state.announcements.find(x=>x.id===id);
+    if(!a)return;
+    openAnnouncementDetail345Prev(id);
+    setTimeout(()=>{
+      const uid=me()?.id,sheet=$('#sheet');
+      if(!uid||!sheet)return;
+      const needsConfirm=a.confirmRequired&&!(a.confirmedBy||[]).includes(uid);
+      if(!needsConfirm)return;
+
+      // A required-read message cannot be hidden or cleared until acknowledgement.
+      $('#hideAnn')?.remove();
+      const box=document.createElement('div');
+      box.className='card pad read-required345';
+      box.innerHTML=`<div class="eyebrow">Lesepflicht</div><b>Bitte bestätige diese Nachricht nach dem Lesen.</b><div class="muted small" style="margin-top:5px">Bis zur Bestätigung bleibt sie als ungelesen markiert und kann nicht über „Alles gelesen“ entfernt werden.</div><button class="btn warn wide" id="confirmRead345" style="margin-top:10px">Gelesen bestätigen</button>`;
+      const stats=$('#annStats')?.closest('.section');
+      if(stats)stats.insertAdjacentElement('beforebegin',box);else sheet.appendChild(box);
+
+      $('#confirmRead345').onclick=()=>{
+        a.confirmedBy??=[];a.readBy??=[];
+        if(!a.confirmedBy.includes(uid))a.confirmedBy.push(uid);
+        if(!a.readBy.includes(uid))a.readBy.push(uid);
+        save();updateBadge();toast('Lesen bestätigt');
+        closeModal();openAnnouncementDetail(id);
+      };
+    },35);
+  };
 
 })();
