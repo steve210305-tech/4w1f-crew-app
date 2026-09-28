@@ -202,19 +202,21 @@ function queueBackendSync(){if(!serverLoaded||!prodSession)return;clearTimeout(s
 async function syncStateToBackend(){
   if(serverSyncing||!serverLoaded||!prodSession)return;serverSyncing=true;syncIndicator('Speichere…');const uid=prodSession.user.id;
   try{
-    const current=me();
-    await checked(sb.from('profiles').update({display_name:current.name||'Crew Member',bio:current.bio||'',instagram:current.ig||'',onboarding_complete:(state.finalWelcomeSeenBy||[]).includes(uid)||(state.welcomeSeenBy||[]).includes(uid),last_seen_at:new Date().toISOString()}).eq('id',uid),'Profil');
-    const cv=current._vehicle||{};await checked(sb.from('vehicles').upsert({user_id:uid,model:cv.model||current.car||'',make:cv.make||'',year:cv.year||null,power_ps:cv.power_ps||null,description:cv.description||'',mods:cv.mods||[],photo_path:cv.photo_path||null},{onConflict:'user_id'}),'Fahrzeug');
-    if(isOwner())for(const u of state.users.filter(x=>x.id!==uid))await checked(sb.from('profiles').update({role:u.role,labels:u.labels||[]}).eq('id',u.id),'Rolle');
-    if(isAdmin()){
-      await checked(sb.from('crew_settings').update({about:state.crew.about||'',rules_json:state.crew.rules||[],values_json:(state.crew.values||[]).map(v=>({title:v[0],text:v[1]})),custom_labels:state.customLabels||[],whatsapp_url:state.settings.whatsapp||null,youtube_url:state.settings.youtube||null,instagram_url:state.settings.instagram||null,welcome_auto:state.settings.welcomeAuto!==false,film_title:state.media?.crewFilmTitle||'Mehr als Blech',film_status:state.media?.crewFilmStatus||'Vorbereitung'}).eq('id',1),'Crew-Einstellungen');
-      for(const e of state.events){await checked(sb.from('events').upsert(eventRow(e),{onConflict:'id'}),'Event');e._isNew=false;e._createdBy=e._createdBy||uid}
-      for(const a of state.announcements){await checked(sb.from('announcements').upsert(annRow(a),{onConflict:'id'}),'Ankündigung');a._isNew=false;a._createdBy=a._createdBy||uid}
-      for(const p of state.projects)await checked(sb.from('crew_projects').upsert({id:p.id,title:p.title,description:p.text||'',icon:p.icon||'◆',status:p.status||'idea',status_label:p.statusLabel||projectLabel(p.status),created_by:p._createdBy||uid},{onConflict:'id'}),'Projekt');
-    }
-    for(const e of state.events){const v=e.rsvp?.[uid];if(v)await checked(sb.from('event_rsvps').upsert({event_id:e.id,user_id:uid,status:v,updated_at:new Date().toISOString()},{onConflict:'event_id,user_id'}),'Zusage')}
-    for(const a of state.announcements){const response=myResponse(a)||null,read=(a.readBy||[]).includes(uid),confirmed=(a.confirmedBy||[]).includes(uid),hidden=(a.hiddenBy||[]).includes(uid);await checked(sb.from('announcement_receipts').update({read_at:read?new Date().toISOString():null,confirmed_at:confirmed?new Date().toISOString():null,response,hidden_at:hidden?new Date().toISOString():null}).eq('announcement_id',a.id).eq('user_id',uid),'Lesestatus')}
-    const lv=state.live||{};await checked(sb.from('live_locations').upsert({user_id:uid,sharing:!!lv.share,status:lv.share?statusToDb(lv.status):'off',latitude:lv.share?lv.lat:null,longitude:lv.share?lv.lng:null,target_type:lv.share?(lv.target?.kind||null):null,target_id:lv.share?(lv.target?.id||null):null,target_name:lv.share?(lv.target?.name||null):null,eta_at:lv.share?(lv._etaAt||null):null,distance_km:lv.share?(lv.eta?.distance||null):null,eta_minutes:lv.share?(lv.eta?.minutes||null):null,expires_at:lv.share&&lv.expiresAt?new Date(lv.expiresAt).toISOString():null,place_label:lv.placeLabel||null,movement_state:lv.movementState||'unknown',speed_kmh:lv.speedKmh||null,updated_at:new Date().toISOString()},{onConflict:'user_id'}),'Live');
+    const current=me(),cv=current._vehicle||{},now=new Date().toISOString(),lv=state.live||{};
+    const payload={
+      profile:{display_name:current.name||'Crew Member',bio:current.bio||'',instagram:current.ig||'',onboarding_complete:(state.finalWelcomeSeenBy||[]).includes(uid)||(state.welcomeSeenBy||[]).includes(uid)},
+      vehicle:{model:cv.model||current.car||'',make:cv.make||'',year:cv.year||null,power_ps:cv.power_ps||null,description:cv.description||'',mods:cv.mods||[],photo_path:cv.photo_path||null},
+      role_updates:isOwner()?state.users.filter(x=>x.id!==uid).map(u=>({id:u.id,role:u.role,labels:u.labels||[]})):[],
+      settings:isAdmin()?{about:state.crew.about||'',rules_json:state.crew.rules||[],values_json:(state.crew.values||[]).map(v=>({title:v[0],text:v[1]})),custom_labels:state.customLabels||[],whatsapp_url:state.settings.whatsapp||null,youtube_url:state.settings.youtube||null,instagram_url:state.settings.instagram||null,welcome_auto:state.settings.welcomeAuto!==false,film_title:state.media?.crewFilmTitle||'Mehr als Blech',film_status:state.media?.crewFilmStatus||'Vorbereitung'}:undefined,
+      events:isAdmin()?state.events.map(e=>eventRow(e)):[],
+      announcements:isAdmin()?state.announcements.map(a=>annRow(a)):[],
+      projects:isAdmin()?state.projects.map(p=>({id:p.id,title:p.title,description:p.text||'',icon:p.icon||'◆',status:p.status||'idea',status_label:p.statusLabel||projectLabel(p.status),created_by:p._createdBy||uid})):[],
+      rsvps:state.events.flatMap(e=>e.rsvp?.[uid]?[{event_id:e.id,status:e.rsvp[uid]}]:[]),
+      receipts:state.announcements.map(a=>({announcement_id:a.id,read_at:(a.readBy||[]).includes(uid)?now:null,confirmed_at:(a.confirmedBy||[]).includes(uid)?now:null,response:myResponse(a)||null,hidden_at:(a.hiddenBy||[]).includes(uid)?now:null})),
+      live:{sharing:!!lv.share,status:lv.share?statusToDb(lv.status):'off',latitude:lv.share?lv.lat:null,longitude:lv.share?lv.lng:null,target_type:lv.share?(lv.target?.kind||null):null,target_id:lv.share?(lv.target?.id||null):null,target_name:lv.share?(lv.target?.name||null):null,eta_at:lv.share?(lv._etaAt||null):null,distance_km:lv.share?(lv.eta?.distance||null):null,eta_minutes:lv.share?(lv.eta?.minutes||null):null,expires_at:lv.share&&lv.expiresAt?new Date(lv.expiresAt).toISOString():null,place_label:lv.placeLabel||null,movement_state:lv.movementState||'unknown',speed_kmh:lv.speedKmh||null}
+    };
+    const {error}=await sb.rpc('sync_app_state',{p:payload});if(error)throw error;
+    for(const e of state.events){e._isNew=false;e._createdBy=e._createdBy||uid}for(const a of state.announcements){a._isNew=false;a._createdBy=a._createdBy||uid}
     try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}syncIndicator('Gespeichert','ok');
   }catch(e){productionError(e,'Speichern')}finally{serverSyncing=false}
 }
