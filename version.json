@@ -1,6 +1,6 @@
 {
-  "version": "3.4.9",
-  "build": "2026-09-28.2",
-  "published_at": "2026-09-28",
-  "channel": "invite-and-notification-fixes"
+  "version": "3.4.10",
+  "build": "2026-09-29.1",
+  "published_at": "2026-09-29",
+  "channel": "sync-stability-fix"
 }
