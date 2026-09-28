@@ -426,20 +426,54 @@ renderGallery=function(){
   }
 };
 
-// invite expiry, QR, revoke
+// invite expiry, QR, revoke + shared crew group link
 openApplications=async function(){
   const {data:invites,error}=await sb.from('invites').select('*').eq('active',true).order('created_at',{ascending:false}).limit(50);if(error)return productionError(error,'Einladungen');
+  const activeInvites=invites||[];
+  const groupInvite=activeInvites.find(i=>i.role==='member'&&!i.email&&Number(i.max_uses)===50);
+  const groupExpiry=groupInvite?.expires_at?formatUntil(groupInvite.expires_at):'∞';
   openModal('Einladungen',`<div class="card pad"><div class="eyebrow">Invite-only</div><h3 style="margin:5px 0">Neue Crew-Konten</h3><div class="muted small">Links sind zeitlich begrenzt und können jederzeit deaktiviert werden.</div></div>
-    <div class="field"><label>Rolle</label><select id="inviteRole"><option value="member">Mitglied</option>${isOwner()?'<option value="admin">Admin</option>':''}</select></div>
-    <div class="field"><label>E-Mail sperren (optional)</label><input id="inviteEmail" type="email" placeholder="Nur diese Person darf den Code nutzen"></div>
-    <div class="field2"><div class="field"><label>Anzahl Nutzungen</label><input id="inviteUses" type="number" min="1" max="100" value="1"></div><div class="field"><label>Gültig</label><select id="inviteDays"><option value="1">1 Tag</option><option value="7">7 Tage</option><option value="30" selected>30 Tage</option></select></div></div>
-    <button class="btn primary wide" id="createInvite">Einladung erzeugen</button>
-    <div class="section"><div class="sectionhead"><h2>Aktive Codes</h2></div><div class="list">${(invites||[]).map(i=>`<div class="card pad"><b>${i.role==='admin'?'ADMIN':'MITGLIED'}</b><div class="invite-code">${esc(i.code)}</div><div class="invite-meta"><span>${i.used_count}/${i.max_uses} genutzt</span>${i.email?'<span>E-Mail gebunden</span>':''}<span>bis ${i.expires_at?formatUntil(i.expires_at):'∞'}</span></div><div class="actions"><button class="btn outline sm" data-copy-invite="${i.code}">Link</button><button class="btn outline sm" data-qr-invite="${i.code}">QR</button><button class="btn primary sm" data-share-invite="${i.code}">Teilen</button><button class="btn bad sm" data-revoke-invite="${i.id}">Deaktivieren</button></div></div>`).join('')||'<div class="notice">Noch keine aktiven Einladungen.</div>'}</div></div>`,
-    ()=>{$('#createInvite').onclick=async()=>{const role=$('#inviteRole').value,email=$('#inviteEmail').value.trim()||null,uses=Math.max(1,Math.min(100,+$('#inviteUses').value||1)),days=+$('#inviteDays').value||30,expires=new Date(Date.now()+days*86400000).toISOString();const {data,error}=await sb.rpc('create_invite',{p_role:role,p_labels:[],p_email:email,p_max_uses:uses,p_expires_at:expires});if(error)return toast(error.message);await copyText(inviteUrl(data),'Einladungslink kopiert');closeModal();openApplications()};
+    <div class="section card pad" style="border-color:rgba(155,52,255,.55);box-shadow:0 0 28px rgba(155,52,255,.12)">
+      <div class="eyebrow">GRUPPENLINK</div>
+      <h3 style="margin:5px 0">Ein Link für die ganze Crew</h3>
+      ${groupInvite
+        ?`<div class="muted small">Aktiv · ${groupInvite.used_count}/${groupInvite.max_uses} genutzt · bis ${groupExpiry}</div><div class="actions"><button class="btn primary" id="copyGroupInvite">Link kopieren</button><button class="btn outline" id="qrGroupInvite">QR</button><button class="btn outline" id="shareGroupInvite">Teilen</button><button class="btn bad" id="disableGroupInvite">Deaktivieren</button></div>`
+        :`<div class="muted small">Automatisch Mitglied · bis zu 50 Registrierungen · 30 Tage gültig · jederzeit deaktivierbar.</div><button class="btn primary wide" style="margin-top:10px" id="createGroupInvite">${state.settings.previewMode?'GRUPPENLINK VORBEREITEN':'GRUPPENLINK ERSTELLEN'}</button>`}
+    </div>
+    <div class="section"><div class="sectionhead"><h2>Persönliche Einladung</h2></div>
+      <div class="field"><label>Rolle</label><select id="inviteRole"><option value="member">Mitglied</option>${isOwner()?'<option value="admin">Admin</option>':''}</select></div>
+      <div class="field"><label>E-Mail sperren (optional)</label><input id="inviteEmail" type="email" placeholder="Nur diese Person darf den Code nutzen"></div>
+      <div class="field2"><div class="field"><label>Anzahl Nutzungen</label><input id="inviteUses" type="number" min="1" max="100" value="1"></div><div class="field"><label>Gültig</label><select id="inviteDays"><option value="1">1 Tag</option><option value="7">7 Tage</option><option value="30" selected>30 Tage</option></select></div></div>
+      <button class="btn outline wide" id="createInvite">Einladung erzeugen</button>
+    </div>
+    <div class="section"><div class="sectionhead"><h2>Aktive Codes</h2></div><div class="list">${activeInvites.map(i=>{const isGroup=i.role==='member'&&!i.email&&Number(i.max_uses)===50;return `<div class="card pad"><b>${isGroup?'GRUPPENLINK':i.role==='admin'?'ADMIN':'MITGLIED'}</b><div class="invite-code">${esc(i.code)}</div><div class="invite-meta"><span>${i.used_count}/${i.max_uses} genutzt</span>${i.email?'<span>E-Mail gebunden</span>':''}<span>bis ${i.expires_at?formatUntil(i.expires_at):'∞'}</span></div><div class="actions"><button class="btn outline sm" data-copy-invite="${i.code}">Link</button><button class="btn outline sm" data-qr-invite="${i.code}">QR</button><button class="btn primary sm" data-share-invite="${i.code}">Teilen</button><button class="btn bad sm" data-revoke-invite="${i.id}">Deaktivieren</button></div></div>`}).join('')||'<div class="notice">Noch keine aktiven Einladungen.</div>'}</div></div>`,
+    ()=>{
+      const openInviteQr=(url,title='QR Einladung')=>openModal(title,`<div class="qr-wrap" id="inviteQr"></div><div class="notice">QR scannen → Einladung öffnen → Crew-Konto erstellen.</div><button class="btn outline wide" id="qrCopy">Link kopieren</button>`,()=>{new QRCode(document.getElementById('inviteQr'),{text:url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});$('#qrCopy').onclick=()=>copyText(url)});
+      $('#createGroupInvite')?.addEventListener('click',async()=>{
+        if(state.settings.previewMode&&!confirm('Die Crew ist noch nicht freigegeben. Gruppenlink trotzdem schon vorbereiten? Er funktioniert für Mitglieder erst nach der Crew-Freigabe.'))return;
+        if(!await requireSensitiveAuth('das Erstellen des Gruppenlinks'))return;
+        const expires=new Date(Date.now()+30*86400000).toISOString();
+        const {data,error}=await sb.rpc('create_invite',{p_role:'member',p_labels:[],p_email:null,p_max_uses:50,p_expires_at:expires});
+        if(error)return toast(error.message);
+        await copyText(inviteUrl(data),'Gruppenlink kopiert');
+        closeModal();openApplications()
+      });
+      if(groupInvite){
+        $('#copyGroupInvite')?.addEventListener('click',()=>copyText(inviteUrl(groupInvite.code),'Gruppenlink kopiert'));
+        $('#shareGroupInvite')?.addEventListener('click',()=>shareAppLink(inviteUrl(groupInvite.code),'4W1F Gruppenlink'));
+        $('#qrGroupInvite')?.addEventListener('click',()=>openInviteQr(inviteUrl(groupInvite.code),'4W1F Gruppenlink'));
+        $('#disableGroupInvite')?.addEventListener('click',async()=>{if(!confirm('Gruppenlink wirklich deaktivieren?'))return;if(!await requireSensitiveAuth('das Deaktivieren des Gruppenlinks'))return;const {error}=await sb.from('invites').update({active:false}).eq('id',groupInvite.id);if(error)return toast(error.message);closeModal();openApplications();toast('Gruppenlink deaktiviert')});
+      }
+      $('#createInvite').onclick=async()=>{
+        if(!await requireSensitiveAuth('das Erstellen einer Einladung'))return;
+        const role=$('#inviteRole').value,email=$('#inviteEmail').value.trim()||null,uses=Math.max(1,Math.min(100,+$('#inviteUses').value||1)),days=+$('#inviteDays').value||30,expires=new Date(Date.now()+days*86400000).toISOString();
+        const {data,error}=await sb.rpc('create_invite',{p_role:role,p_labels:[],p_email:email,p_max_uses:uses,p_expires_at:expires});if(error)return toast(error.message);
+        await copyText(inviteUrl(data),'Einladungslink kopiert');closeModal();openApplications()
+      };
       $$('[data-copy-invite]').forEach(b=>b.onclick=()=>copyText(inviteUrl(b.dataset.copyInvite),'Einladungslink kopiert'));
       $$('[data-share-invite]').forEach(b=>b.onclick=()=>shareAppLink(inviteUrl(b.dataset.shareInvite),'4W1F Einladung'));
-      $$('[data-qr-invite]').forEach(b=>b.onclick=()=>{const url=inviteUrl(b.dataset.qrInvite);openModal('QR Einladung',`<div class="qr-wrap" id="inviteQr"></div><div class="notice">QR scannen → Einladung öffnen → Crew-Konto erstellen.</div><button class="btn outline wide" id="qrCopy">Link kopieren</button>`,()=>{new QRCode(document.getElementById('inviteQr'),{text:url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});$('#qrCopy').onclick=()=>copyText(url)})});
-      $$('[data-revoke-invite]').forEach(b=>b.onclick=async()=>{if(!confirm('Einladung wirklich deaktivieren?'))return;const {error}=await sb.from('invites').update({active:false}).eq('id',b.dataset.revokeInvite);if(error)return toast(error.message);closeModal();openApplications()});
+      $$('[data-qr-invite]').forEach(b=>b.onclick=()=>openInviteQr(inviteUrl(b.dataset.qrInvite)));
+      $$('[data-revoke-invite]').forEach(b=>b.onclick=async()=>{if(!confirm('Einladung wirklich deaktivieren?'))return;if(!await requireSensitiveAuth('das Deaktivieren einer Einladung'))return;const {error}=await sb.from('invites').update({active:false}).eq('id',b.dataset.revokeInvite);if(error)return toast(error.message);closeModal();openApplications()});
     });
 };
 
