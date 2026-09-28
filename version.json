@@ -1,6 +1,6 @@
 {
-  "version": "3.4.8",
-  "build": "2026-09-28.1",
+  "version": "3.4.9",
+  "build": "2026-09-28.2",
   "published_at": "2026-09-28",
-  "channel": "group-invite-link"
+  "channel": "invite-and-notification-fixes"
 }
