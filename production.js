@@ -28,7 +28,8 @@ const authStorage={
 const AUTH_RECOVERY_HINT=(()=>{try{const h=new URLSearchParams(location.hash.replace(/^#/,'')).get('type'),q=new URLSearchParams(location.search).get('type');return h==='recovery'||q==='recovery'}catch{return false}})();
 let recoveryMode=AUTH_RECOVERY_HINT;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:authStorage}});
-let prodSession=null,serverLoaded=false,serverSyncing=false,syncTimer=null,realtimeChannel=null,realtimeRefreshTimer=null,lastSyncError='',serverLoadPromise=null,realtimeRefreshPending=false;\nconst signedMediaCache=new Map();
+let prodSession=null,serverLoaded=false,serverSyncing=false,syncTimer=null,realtimeChannel=null,realtimeRefreshTimer=null,lastSyncError='',serverLoadPromise=null,realtimeRefreshPending=false;
+const signedMediaCache=new Map();
 
 function syncIndicator(text='',kind=''){
   let el=document.getElementById('syncIndicator');
@@ -150,6 +151,8 @@ async function bootstrapAuthenticated(){
 function bindProductionHeader(){$('#notifBtn').onclick=showNotifications;$('#profileBtn').onclick=openAccountCenter}
 
 async function loadServerState(){
+  if(serverLoadPromise){realtimeRefreshPending=true;return serverLoadPromise}
+  serverLoadPromise=(async()=>{
   syncIndicator('Synchronisiere…');serverLoaded=false;const uid=prodSession.user.id;
   const q=[
     sb.from('crew_settings').select('*').eq('id',1).single(),
@@ -184,8 +187,12 @@ async function loadServerState(){
   const meProfile=profiles.find(p=>p.id===uid);if(meProfile?.onboarding_complete){fresh.welcomeSeenBy=[uid];fresh.finalWelcomeSeenBy=[uid]}
   fresh.savedPlaces=savedPlaces;fresh.audit=(auditR.data||[]).map(x=>`${new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}).format(new Date(x.created_at))} · ${x.action} · ${x.entity_type}`);
   fresh.photos=[];
-  for(const g of gallery){const {data:signed}=await sb.storage.from('crew-media').createSignedUrl(g.storage_path,86400);if(signed?.signedUrl)fresh.photos.push({id:g.id,data:signed.signedUrl,label:g.caption||'Crew Foto',kind:uiKindFromDb(g.category),createdAt:new Date(g.created_at).getTime(),eventId:g.event_id,_storagePath:g.storage_path})}
+  const signedNow=Date.now(),missingGallery=[];
+  for(const g of gallery){const cached=signedMediaCache.get(g.storage_path);if(cached&&cached.expiresAt>signedNow+300000)fresh.photos.push({id:g.id,data:cached.url,label:g.caption||'Crew Foto',kind:uiKindFromDb(g.category),createdAt:new Date(g.created_at).getTime(),eventId:g.event_id,_storagePath:g.storage_path});else missingGallery.push(g)}
+  if(missingGallery.length){const {data:signedRows,error:signedError}=await sb.storage.from('crew-media').createSignedUrls(missingGallery.map(g=>g.storage_path),86400);if(signedError)throw signedError;for(let i=0;i<missingGallery.length;i++){const g=missingGallery[i],url=signedRows?.[i]?.signedUrl;if(!url)continue;signedMediaCache.set(g.storage_path,{url,expiresAt:signedNow+82800000});fresh.photos.push({id:g.id,data:url,label:g.caption||'Crew Foto',kind:uiKindFromDb(g.category),createdAt:new Date(g.created_at).getTime(),eventId:g.event_id,_storagePath:g.storage_path})}}
   state=fresh;try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}serverLoaded=true;syncIndicator('Synchronisiert','ok');
+  })();
+  try{return await serverLoadPromise}finally{serverLoadPromise=null}
 }
 
 function eventRow(e){return{id:e.id,title:e.name,event_type:e.type||'Treffen',tagline:e.tagline||'Gemeinsam. Unterwegs. Immer Family.',description:e.description||'',starts_at:e._startsAt||null,ends_at:e._endsAt||null,place_name:e.place||'',latitude:e.lat??null,longitude:e.lng??null,route_json:e.stops||[],cover_path:e._coverPath||null,status:e._status||'published',created_by:e._createdBy||prodSession.user.id}}
