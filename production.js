@@ -28,7 +28,7 @@ const authStorage={
 const AUTH_RECOVERY_HINT=(()=>{try{const h=new URLSearchParams(location.hash.replace(/^#/,'')).get('type'),q=new URLSearchParams(location.search).get('type');return h==='recovery'||q==='recovery'}catch{return false}})();
 let recoveryMode=AUTH_RECOVERY_HINT;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:authStorage}});
-let prodSession=null,serverLoaded=false,serverSyncing=false,syncTimer=null,realtimeChannel=null,realtimeRefreshTimer=null,lastSyncError='';
+let prodSession=null,serverLoaded=false,serverSyncing=false,syncTimer=null,realtimeChannel=null,realtimeRefreshTimer=null,lastSyncError='',serverLoadPromise=null,realtimeRefreshPending=false;\nconst signedMediaCache=new Map();
 
 function syncIndicator(text='',kind=''){
   let el=document.getElementById('syncIndicator');
@@ -216,7 +216,17 @@ save=function(){try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}c
 function subscribeRealtime(){
   realtimeChannel?.unsubscribe();realtimeChannel=sb.channel('4w1f-production');for(const t of ['profiles','vehicles','events','event_rsvps','announcements','announcement_receipts','gallery_items','crew_projects','live_locations','crew_settings'])realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh());realtimeChannel.subscribe();
 }
-function scheduleRealtimeRefresh(){clearTimeout(realtimeRefreshTimer);realtimeRefreshTimer=setTimeout(async()=>{if(serverSyncing)return scheduleRealtimeRefresh();try{const currentPage=page;await loadServerState();page=currentPage;render()}catch(e){productionError(e,'Live-Sync')}},900)}
+function scheduleRealtimeRefresh(){
+  realtimeRefreshPending=true;
+  clearTimeout(realtimeRefreshTimer);
+  realtimeRefreshTimer=setTimeout(async()=>{
+    if(serverSyncing||serverLoadPromise)return scheduleRealtimeRefresh();
+    realtimeRefreshPending=false;
+    try{const currentPage=page;await loadServerState();page=currentPage;render()}
+    catch(e){productionError(e,'Live-Sync')}
+    finally{if(realtimeRefreshPending)scheduleRealtimeRefresh()}
+  },1800)
+}
 
 handlePhotos=async function(files){
   const arr=[...files].slice(0,8).filter(f=>/^image\/(jpeg|png|webp|heic|heif)$/i.test(f.type)&&f.size<=12*1024*1024);if(!arr.length)return toast('Nur Bilder bis 12 MB');
