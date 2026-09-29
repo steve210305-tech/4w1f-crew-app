@@ -779,3 +779,258 @@
   };
 
 })();
+
+
+/* ===== 4W1F 3.5 garage + stable Crew Live ===== */
+(function(){
+  'use strict';
+
+  const style=document.createElement('style');
+  style.textContent=
+    '.garage348-list{display:grid;gap:9px}.garage348-card{display:grid;grid-template-columns:72px 1fr;gap:11px;align-items:center;padding:11px}.garage348-photo{width:72px;height:72px;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,rgba(155,52,255,.18),#0c0c12);border:1px solid var(--line);display:grid;place-items:center;font-size:27px}.garage348-photo img{width:100%;height:100%;object-fit:cover}.garage348-meta h3{margin:2px 0 4px;font-size:17px}.garage348-meta .sub{font-size:10px;color:var(--muted)}.garage348-primary{display:inline-flex;padding:3px 7px;border-radius:999px;background:rgba(155,52,255,.15);border:1px solid rgba(155,52,255,.38);color:#d47cff;font-size:8px;font-weight:900;letter-spacing:1px;margin-bottom:4px}.garage348-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}' +
+    '.profile-garage348{margin-top:9px}.profile-garage348 b{display:block}.profile-garage348 span{font-size:10px;color:var(--muted)}' +
+    '#liveMap img.leaflet-marker-icon{opacity:0!important}.crew-live-avatar348{background:transparent!important;border:0!important}.crew-live-avatar348 .bubble{width:48px;height:48px;border-radius:50%;padding:3px;background:linear-gradient(135deg,#7d2cff,#d53bd0);box-shadow:0 0 0 4px rgba(155,52,255,.17),0 8px 24px rgba(0,0,0,.42),0 0 24px rgba(155,52,255,.45);position:relative}.crew-live-avatar348 .bubble img,.crew-live-avatar348 .fallback{width:42px;height:42px;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#11111a;color:white;font-weight:900;font-size:15px}.crew-live-avatar348 .livebadge{position:absolute;right:-3px;bottom:-2px;width:13px;height:13px;border-radius:50%;background:#35de87;border:2px solid #0b0b10;box-shadow:0 0 10px rgba(53,222,135,.8)}' +
+    '.crew-live-strip348{margin:10px 0 2px}.crew-live-strip348 .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}.crew-live-strip348 .head b{font-size:12px}.crew-live-strip348 .head span{font-size:9px;color:var(--muted)}.crew-live-people348{display:flex;gap:8px;overflow:auto;padding-bottom:3px;scrollbar-width:none}.crew-live-people348::-webkit-scrollbar{display:none}.crew-live-person348{min-width:164px;display:grid;grid-template-columns:42px 1fr;gap:8px;align-items:center;padding:9px;text-align:left}.crew-live-person348 .mini{width:42px;height:42px;border-radius:50%;overflow:hidden;background:#15151c;display:grid;place-items:center;font-size:18px;border:1px solid rgba(155,52,255,.35)}.crew-live-person348 .mini img{width:100%;height:100%;object-fit:cover}.crew-live-person348 b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.crew-live-person348 span{display:block;font-size:8px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}.crew-live-person348 .status{color:#c966ff}' +
+    '.live-summary .life360-note348{margin-top:4px;font-size:8px;color:#8f8a99}.garage348-empty{text-align:center;padding:22px 12px;color:var(--muted)}';
+  document.head.appendChild(style);
+
+  const privacyDefaults348={instagram:true,vehicle:true,power:true,mods:true,photos:true};
+  const privacy348=u=>Object.assign({},privacyDefaults348,(u&&u._privacy)||{});
+  const vehicleLabel348=v=>[v&&v.make,v&&v.model].filter(Boolean).join(' ')||'Unbenanntes Fahrzeug';
+  const signed348=async(bucket,path,seconds=86400)=>{
+    if(!path)return null;
+    try{const r=await sb.storage.from(bucket).createSignedUrl(path,seconds);return r.error?null:(r.data&&r.data.signedUrl)||null}catch{return null}
+  };
+
+  async function refreshVehiclePhotoUrls348(user){
+    const list=(user&&user._vehicles)||[];
+    await Promise.all(list.map(async v=>{v._photoUrl348=v.photo_path?await signed348('crew-media',v.photo_path):null}));
+  }
+
+  async function openGarage348(){
+    const u=me();
+    await refreshVehiclePhotoUrls348(u);
+    const list=u._vehicles||[];
+    const rows=list.map(v=>{
+      const img=v._photoUrl348?'<img src="'+esc(v._photoUrl348)+'" alt="">':'🚗';
+      return '<div class="card garage348-card">'+
+        '<div class="garage348-photo">'+img+'</div>'+
+        '<div class="garage348-meta">'+
+          (v.is_primary?'<span class="garage348-primary">HAUPTFAHRZEUG</span>':'')+
+          '<h3>'+esc(vehicleLabel348(v))+'</h3>'+
+          '<div class="sub">'+(v.year?'Baujahr '+v.year:'Baujahr offen')+(v.power_ps?' · '+v.power_ps+' PS':'')+'</div>'+
+          '<div class="garage348-actions">'+
+            '<button class="btn outline sm" data-edit-vehicle348="'+v.id+'">Bearbeiten</button>'+
+            (!v.is_primary?'<button class="btn outline sm" data-primary-vehicle348="'+v.id+'">Als Hauptfahrzeug</button>':'')+
+            '<button class="btn bad sm" data-delete-vehicle348="'+v.id+'">Löschen</button>'+
+          '</div>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+    openModal('Meine Garage',
+      '<div class="card pad"><div class="eyebrow">DEINE FAHRZEUGE</div><h3 style="margin:5px 0">Garage</h3><div class="muted small">Lege mehrere Fahrzeuge an. Dein Hauptfahrzeug wird in Profil, Galerie und Crew Live zuerst angezeigt.</div></div>'+
+      '<button class="btn primary wide" id="addVehicle348" style="margin-top:10px">+ Fahrzeug hinzufügen</button>'+
+      '<div class="section garage348-list">'+(rows||'<div class="garage348-empty">Noch kein Fahrzeug angelegt.</div>')+'</div>',
+      ()=>{
+        $('#addVehicle348').onclick=()=>{closeModal();openVehicleEditor348(null)};
+        $$('[data-edit-vehicle348]').forEach(b=>b.onclick=()=>{const v=(me()._vehicles||[]).find(x=>x.id===b.dataset.editVehicle348);closeModal();openVehicleEditor348(v)});
+        $$('[data-primary-vehicle348]').forEach(b=>b.onclick=async()=>{
+          const id=b.dataset.primaryVehicle348,uid=prodSession.user.id;
+          if(!await requireSensitiveAuth('das Ändern des Hauptfahrzeugs'))return;
+          let r=await sb.from('vehicles').update({is_primary:false,updated_at:new Date().toISOString()}).eq('user_id',uid);if(r.error)return toast(r.error.message);
+          r=await sb.from('vehicles').update({is_primary:true,updated_at:new Date().toISOString()}).eq('id',id).eq('user_id',uid);if(r.error)return toast(r.error.message);
+          closeModal();await loadServerState();openGarage348();toast('Hauptfahrzeug geändert');
+        });
+        $$('[data-delete-vehicle348]').forEach(b=>b.onclick=async()=>{
+          const id=b.dataset.deleteVehicle348,vehicles=me()._vehicles||[],v=vehicles.find(x=>x.id===id);if(!v)return;
+          if(!confirm(vehicleLabel348(v)+' wirklich aus deiner Garage löschen?'))return;
+          const r=await sb.from('vehicles').delete().eq('id',id).eq('user_id',prodSession.user.id);if(r.error)return toast(r.error.message);
+          if(v.is_primary){
+            const next=vehicles.find(x=>x.id!==id);
+            if(next)await sb.from('vehicles').update({is_primary:true,updated_at:new Date().toISOString()}).eq('id',next.id).eq('user_id',prodSession.user.id);
+          }
+          closeModal();await loadServerState();openGarage348();toast('Fahrzeug gelöscht');
+        });
+      });
+  }
+  window.openGarage348=openGarage348;
+
+  function openVehicleEditor348(vehicle){
+    const u=me(),v=vehicle||{make:'',model:'',year:null,power_ps:null,mods:[],description:'',is_primary:(u._vehicles||[]).length===0};
+    let selectedFile=null;
+    openModal(vehicle?'Fahrzeug bearbeiten':'Fahrzeug hinzufügen',
+      '<div class="field2"><div class="field"><label>Marke</label><input id="vMake348" value="'+esc(v.make||'')+'"></div><div class="field"><label>Modell</label><input id="vModel348" value="'+esc(v.model||'')+'"></div></div>'+
+      '<div class="field2"><div class="field"><label>Baujahr</label><input id="vYear348" type="number" min="1900" max="2100" value="'+(v.year||'')+'"></div><div class="field"><label>Leistung (PS)</label><input id="vPower348" type="number" min="0" max="3000" value="'+(v.power_ps||'')+'"></div></div>'+
+      '<div class="field"><label>Umbauten · durch Komma trennen</label><input id="vMods348" value="'+esc((v.mods||[]).join(', '))+'"></div>'+
+      '<div class="field"><label>Beschreibung</label><textarea id="vDesc348">'+esc(v.description||'')+'</textarea></div>'+
+      '<label class="privacy-row340"><span><b class="small">Hauptfahrzeug</b><br><span class="muted tiny">Dieses Fahrzeug wird standardmäßig im Profil und in Crew Live angezeigt.</span></span><input id="vPrimary348" type="checkbox" '+(v.is_primary?'checked':'')+'></label>'+
+      '<div class="section"><label class="btn outline wide">📷 Fahrzeugbild auswählen<input hidden id="vPhoto348" type="file" accept="image/jpeg,image/png,image/webp"></label><div class="muted tiny" id="vPhotoName348" style="margin-top:6px">'+(v.photo_path?'Aktuelles Fahrzeugbild bleibt erhalten, wenn du kein neues auswählst.':'Optional')+'</div></div>'+
+      '<button class="btn primary wide" id="saveVehicle348">Fahrzeug speichern</button>',
+      ()=>{
+        $('#vPhoto348').onchange=e=>{selectedFile=e.target.files&&e.target.files[0]||null;$('#vPhotoName348').textContent=selectedFile?selectedFile.name:'Optional'};
+        $('#saveVehicle348').onclick=async()=>{
+          const uid=prodSession.user.id,make=$('#vMake348').value.trim(),model=$('#vModel348').value.trim();
+          if(!make&&!model)return toast('Bitte mindestens Marke oder Modell eintragen');
+          const wantsPrimary=$('#vPrimary348').checked||(u._vehicles||[]).length===0;
+          const row={user_id:uid,make,model,year:+$('#vYear348').value||null,power_ps:+$('#vPower348').value||null,mods:$('#vMods348').value.split(',').map(x=>x.trim()).filter(Boolean),description:$('#vDesc348').value.trim(),updated_at:new Date().toISOString()};
+          const btn=$('#saveVehicle348');btn.disabled=true;btn.textContent='Wird gespeichert…';
+          try{
+            if(wantsPrimary)await checked(sb.from('vehicles').update({is_primary:false,updated_at:new Date().toISOString()}).eq('user_id',uid),'Garage');
+            let saved;
+            if(vehicle){
+              const q=await sb.from('vehicles').update(Object.assign({},row,{is_primary:wantsPrimary})).eq('id',vehicle.id).eq('user_id',uid).select('*').single();
+              if(q.error)throw q.error;saved=q.data;
+            }else{
+              const q=await sb.from('vehicles').insert(Object.assign({},row,{is_primary:wantsPrimary})).select('*').single();
+              if(q.error)throw q.error;saved=q.data;
+            }
+            if(selectedFile){
+              if(!/^image\/(jpeg|png|webp)$/i.test(selectedFile.type)||selectedFile.size>12*1024*1024)throw new Error('JPEG, PNG oder WebP bis 12 MB');
+              const safe=await sanitizeImageFile(selectedFile),path=uid+'/vehicle-'+saved.id+'.webp';
+              await checked(sb.storage.from('crew-media').upload(path,safe,{contentType:'image/webp',upsert:true}),'Fahrzeugbild');
+              await checked(sb.from('vehicles').update({photo_path:path,updated_at:new Date().toISOString()}).eq('id',saved.id).eq('user_id',uid),'Fahrzeugbild');
+            }
+            closeModal();await loadServerState();openGarage348();toast('Fahrzeug gespeichert');
+          }catch(e){productionError(e,'Garage');toast(e.message||'Fahrzeug konnte nicht gespeichert werden');btn.disabled=false;btn.textContent='Fahrzeug speichern'}
+        };
+      });
+  }
+
+  const previousProfile348=renderProfile;
+  renderProfile=function(){
+    previousProfile348();
+    const edit=$('#editProfile');if(edit)edit.textContent='Profil bearbeiten';
+    if(edit&&!$('#openGarage348')){
+      const section=edit.closest('.section');
+      const box=document.createElement('div');box.className='card pad profile-garage348';
+      const count=(me()._vehicles||[]).length,primary=me()._vehicle;
+      box.innerHTML='<div class="eyebrow">MEINE GARAGE</div><b>'+(count===1?'1 Fahrzeug':count+' Fahrzeuge')+'</b><span>'+(primary?'Hauptfahrzeug: '+esc(vehicleLabel348(primary)):'Noch kein Fahrzeug hinterlegt')+'</span><button class="btn outline wide" id="openGarage348" style="margin-top:9px">Garage verwalten</button>';
+      section.insertAdjacentElement('afterend',box);
+      $('#openGarage348').onclick=openGarage348;
+    }
+  };
+
+  openProfileEditor=function(){
+    const u=me(),p=privacy348(u);
+    openModal('Profil & Privatsphäre',
+      '<div class="field"><label>Name</label><input id="profName348" value="'+esc(u.name)+'"></div>'+
+      '<div class="field"><label>Instagram / Handle</label><input id="profIg348" value="'+esc(u.ig||'')+'"></div>'+
+      '<div class="field"><label>Über mich</label><textarea id="profBio348">'+esc(u.bio||'')+'</textarea></div>'+
+      '<div class="section"><div class="sectionhead"><h2>Garage</h2></div><div class="notice">'+((u._vehicles||[]).length?((u._vehicles||[]).length+' Fahrzeug'+((u._vehicles||[]).length===1?'':'e')+' hinterlegt · Hauptfahrzeug: '+esc(vehicleLabel348(u._vehicle))):'Noch kein Fahrzeug hinterlegt.')+'</div><button class="btn outline wide" id="profileGarage348" style="margin-top:8px">Garage verwalten</button></div>'+
+      '<div class="section"><div class="sectionhead"><h2>Privatsphäre</h2></div><div class="privacy-list340">'+
+        '<label class="privacy-row340"><span><b class="small">Instagram anzeigen</b><br><span class="muted tiny">Andere Crew-Mitglieder sehen deinen Handle.</span></span><input id="pIg348" type="checkbox" '+(p.instagram?'checked':'')+'></label>'+
+        '<label class="privacy-row340"><span><b class="small">Fahrzeuge anzeigen</b><br><span class="muted tiny">Deine Garage ist im Crew-Profil sichtbar.</span></span><input id="pVehicle348" type="checkbox" '+(p.vehicle?'checked':'')+'></label>'+
+        '<label class="privacy-row340"><span><b class="small">Leistung anzeigen</b><br><span class="muted tiny">PS-Zahlen werden anderen Mitgliedern angezeigt.</span></span><input id="pPower348" type="checkbox" '+(p.power?'checked':'')+'></label>'+
+        '<label class="privacy-row340"><span><b class="small">Umbauten anzeigen</b><br><span class="muted tiny">Modifikationen und Umbauten werden angezeigt.</span></span><input id="pMods348" type="checkbox" '+(p.mods?'checked':'')+'></label>'+
+        '<label class="privacy-row340"><span><b class="small">Profilbilder anzeigen</b><br><span class="muted tiny">Dein Profilbild erscheint auch in Crew Live.</span></span><input id="pPhotos348" type="checkbox" '+(p.photos?'checked':'')+'></label>'+
+      '</div></div>'+
+      '<button class="btn primary wide" id="saveProfile348" style="margin-top:12px">Profil speichern</button>',
+      ()=>{
+        $('#profileGarage348').onclick=()=>{closeModal();openGarage348()};
+        $('#saveProfile348').onclick=async()=>{
+          const row={display_name:$('#profName348').value.trim()||u.name,instagram:$('#profIg348').value.trim(),bio:$('#profBio348').value.trim(),privacy:{instagram:$('#pIg348').checked,vehicle:$('#pVehicle348').checked,power:$('#pPower348').checked,mods:$('#pMods348').checked,photos:$('#pPhotos348').checked}};
+          const r=await sb.from('profiles').update(row).eq('id',prodSession.user.id);if(r.error)return toast(r.error.message);
+          closeModal();await loadServerState();renderProfile();toast('Profil gespeichert');
+        };
+      });
+  };
+
+  openMemberDetail=async function(id){
+    const u=state.users.find(x=>x.id===id);if(!u)return;
+    const p=privacy348(u),vehicles=p.vehicle?(u._vehicles||[]):[],photos=p.photos?(state.photos||[]).filter(x=>x.uploaderId===u.id&&x.profileVisible&&x.approved!==false):[];
+    openModal(u.name,'<div class="notice">Profil wird geladen…</div>');
+    const avatarUrl=p.photos?(u._avatarUrl345||await signed348('avatars',u._avatarPath)):null;
+    const vehicleUrls=await Promise.all(vehicles.map(v=>signed348('crew-media',v.photo_path)));
+    const vehicleCards=vehicles.map((v,i)=>{
+      const img=vehicleUrls[i]?'<img src="'+esc(vehicleUrls[i])+'" alt="">':'🚗';
+      return '<div class="card member-vehicle">'+
+        '<div class="member-vehicle-photo">'+img+'</div>'+
+        '<div class="member-vehicle-body">'+(v.is_primary?'<div class="eyebrow">HAUPTFAHRZEUG</div>':'<div class="eyebrow">GARAGE</div>')+
+        '<h3 style="margin:5px 0">'+esc(vehicleLabel348(v))+'</h3>'+
+        '<div class="muted small">'+(v.year?'Baujahr '+v.year:'')+(p.power&&v.power_ps?' · '+v.power_ps+' PS':'')+'</div>'+
+        (p.mods&&(v.mods||[]).length?'<div class="member-tags" style="margin-top:8px">'+v.mods.map(m=>'<span class="label function">'+esc(m)+'</span>').join('')+'</div>':'')+
+        (v.description?'<p class="small muted" style="line-height:1.5">'+esc(v.description)+'</p>':'')+
+        '</div></div>';
+    }).join('');
+    const primary=vehicles.find(v=>v.is_primary)||vehicles[0];
+    openModal(u.name,
+      '<div class="member-social"><div class="member-social-head"><div class="member-social-avatar">'+(avatarUrl?'<img src="'+esc(avatarUrl)+'" alt="">':(u.emoji||'🚗'))+'</div><div class="member-social-meta"><div class="eyebrow">'+roleLabel(u.role)+'</div><h3>'+esc(u.name)+'</h3>'+(p.instagram&&u.ig?'<div class="muted small">'+esc(u.ig)+'</div>':'')+'<div class="member-tags" style="margin-top:7px">'+(u.labels||[]).map(l=>'<span class="label function">'+esc(l)+'</span>').join('')+'</div></div></div>'+
+      '<div class="member-social-stats"><div><b>'+(p.photos?photos.length:'—')+'</b><span>PROFILFOTOS</span></div><div><b>'+(p.vehicle?vehicles.length:'—')+'</b><span>FAHRZEUGE</span></div><div><b>'+(p.power&&primary&&primary.power_ps?primary.power_ps:'—')+'</b><span>PS · HAUPT</span></div></div>'+
+      '<div class="card pad"><div class="eyebrow">Über mich</div><p class="small" style="line-height:1.6;margin-bottom:0">'+esc(u.bio||'Noch keine Beschreibung hinterlegt.')+'</p></div>'+
+      (p.vehicle?'<div class="section"><div class="sectionhead"><h2>Garage</h2></div><div class="garage348-list">'+(vehicleCards||'<div class="notice">Noch kein Fahrzeug hinterlegt.</div>')+'</div></div>':'<div class="notice">Fahrzeuge sind in diesem Profil privat.</div>')+
+      (p.photos&&photos.length?'<div class="section"><div class="sectionhead"><h2>Fotos</h2></div><div class="gallery-grid final-gallery-grid">'+photos.slice(0,9).map(ph=>'<button class="photo gallery-photo" data-profile-photo348="'+ph.id+'"><img src="'+esc(ph.data)+'" alt=""><span class="photo-label">'+esc(ph.label||'Crew Foto')+'</span></button>').join('')+'</div></div>':''),
+      ()=>$$('[data-profile-photo348]').forEach(b=>b.onclick=()=>{const ph=photos.find(x=>x.id===b.dataset.profilePhoto348);if(ph)openPhotoViewer(Object.assign({},ph,{src:ph.data}))})
+    );
+  };
+
+  function liveAvatarHtml348(u){
+    const p=privacy348(u),url=p.photos?u._avatarUrl345:null;
+    return url?'<img src="'+esc(url)+'" alt="">':'<span class="fallback">'+esc((u.name||'?').slice(0,1).toUpperCase())+'</span>';
+  }
+  function liveMini348(u){
+    const p=privacy348(u),url=p.photos?u._avatarUrl345:null;
+    return url?'<img src="'+esc(url)+'" alt="">':esc(u.emoji||'🚗');
+  }
+  function liveRows348(){
+    const rows=[];
+    if(state.live&&state.live.share&&state.live.lat!=null)rows.push({id:me().id,lat:state.live.lat,lng:state.live.lng,status:state.live.placeLabel||state.live.status||'Live',movementState:state.live.movementState||'unknown',speedKmh:Number(state.live.speedKmh||0),self:true});
+    for(const m of (state.live&&state.live.markers)||[])rows.push(m);
+    return rows;
+  }
+  function renderLivePeople348(){
+    const mapEl=$('#liveMap');if(!mapEl)return;
+    let sec=$('#crewLivePeopleSection348');
+    if(!sec){sec=document.createElement('div');sec.id='crewLivePeopleSection348';sec.className='crew-live-strip348';mapEl.insertAdjacentElement('afterend',sec)}
+    const rows=liveRows348();
+    sec.innerHTML='<div class="head"><b>CREW LIVE</b><span>'+rows.length+' sichtbar</span></div><div class="crew-live-people348">'+
+      (rows.map(r=>{const u=state.users.find(x=>x.id===r.id)||{id:r.id,name:'Crew Member',emoji:'🚗',_vehicles:[]},car=u.car||vehicleLabel348(u._vehicle),status=r.status||'Live';return '<button class="card crew-live-person348" data-live-focus348="'+r.id+'"><div class="mini">'+liveMini348(u)+'</div><div><b>'+esc(r.self?'Du · '+u.name:u.name)+'</b><span class="status">'+esc(status)+'</span><span>'+esc(car||'Kein Fahrzeug')+(r.speedKmh?' · '+Math.round(r.speedKmh)+' km/h':'')+'</span></div></button>'}).join('')||'<div class="notice">Aktuell teilt niemand seinen Standort.</div>')+
+      '</div>';
+    $$('[data-live-focus348]').forEach(b=>b.onclick=()=>{const marker=window.__4w1fLiveMarkers348&&window.__4w1fLiveMarkers348.get(b.dataset.liveFocus348);if(marker&&typeof map!=='undefined'){map.setView(marker.getLatLng(),16);marker.openPopup()}});
+  }
+  function refreshLive348(){
+    if(page!=='live'||typeof map==='undefined'||!map||!$('#liveMap'))return;
+    try{
+      if(window.__4w1fLiveAvatarLayer348){window.__4w1fLiveAvatarLayer348.clearLayers();try{map.removeLayer(window.__4w1fLiveAvatarLayer348)}catch{}}
+      const layer=L.layerGroup().addTo(map),markers=new Map();
+      window.__4w1fLiveAvatarLayer348=layer;window.__4w1fLiveMarkers348=markers;
+      for(const r of liveRows348()){
+        const u=state.users.find(x=>x.id===r.id)||{id:r.id,name:'Crew Member',emoji:'🚗'};
+        const icon=L.divIcon({className:'crew-live-avatar348',html:'<div class="bubble">'+liveAvatarHtml348(u)+'<i class="livebadge"></i></div>',iconSize:[48,48],iconAnchor:[24,24]});
+        const marker=L.marker([r.lat,r.lng],{icon,zIndexOffset:r.self?1200:1000}).addTo(layer);
+        marker.bindPopup('<b>'+esc(r.self?'Du · '+u.name:u.name)+'</b><br>'+esc(r.status||'Live')+(u.car?'<br>'+esc(u.car):''));
+        markers.set(r.id,marker);
+      }
+      renderLivePeople348();
+      const note=$('#view .live-summary .life360-note348');
+      if(!note){const host=$('#view .live-summary div[style*="flex:1"]');if(host){const n=document.createElement('div');n.className='life360-note348';n.textContent='Live bleibt aktiv, bis du es selbst zurücksetzt.';host.appendChild(n)}}
+    }catch(e){console.warn('[4W1F Crew Live]',e)}
+  }
+  window.__4w1fRefreshLive348=refreshLive348;
+
+  const previousLive348=renderLive;
+  renderLive=function(){
+    previousLive348();
+    requestAnimationFrame(refreshLive348);
+  };
+
+  const previousLoad348=loadServerState;
+  loadServerState=async function(){
+    const out=await previousLoad348();
+    if(state.live&&state.live.share)setTimeout(()=>{try{ensureLiveWatch()}catch{}},0);
+    return out;
+  };
+
+  const restartLive348=()=>{
+    if(!prodSession||!state.live||!state.live.share)return;
+    try{stopLiveWatch();ensureLiveWatch()}catch{}
+    if(page==='live')setTimeout(refreshLive348,80);
+  };
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')restartLive348()});
+  window.addEventListener('pageshow',restartLive348);
+  window.addEventListener('focus',()=>{if(state.live&&state.live.share&&document.visibilityState==='visible')try{ensureLiveWatch()}catch{}});
+
+  setInterval(()=>{
+    if(!prodSession||document.visibilityState!=='visible'||!state.live||!state.live.share||!navigator.geolocation)return;
+    navigator.geolocation.getCurrentPosition(p=>{try{saveLiveMeta(p)}catch{}},()=>{}, {enableHighAccuracy:true,maximumAge:15000,timeout:15000});
+  },45000);
+})();
