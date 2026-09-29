@@ -1007,6 +1007,24 @@
   }
   window.__4w1fRefreshLive348=refreshLive348;
 
+  const previousGallery348=renderGallery;
+  renderGallery=function(){
+    previousGallery348();
+    const strip=$('#view .garage-strip');
+    if(strip){
+      const cards=[];
+      for(const u of (state.users||[])){
+        if(u._active===false)continue;
+        const list=u._vehicles||[];
+        for(const v of list){
+          cards.push('<button class="card garage-card clickable" data-member-detail="'+u.id+'"><div class="garage-avatar">🚗</div><div><b>'+esc(vehicleLabel348(v))+'</b><span>'+esc(u.name)+(v.is_primary?' · Hauptfahrzeug':'')+'</span></div></button>');
+        }
+      }
+      strip.innerHTML=cards.join('')||'<div class="notice">Noch keine Fahrzeuge in der Crew-Garage.</div>';
+      $('[data-member-detail]').forEach(b=>b.onclick=()=>openMemberDetail(b.dataset.memberDetail));
+    }
+  };
+
   const previousLive348=renderLive;
   renderLive=function(){
     previousLive348();
