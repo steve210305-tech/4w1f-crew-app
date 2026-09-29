@@ -1,6 +1,6 @@
 {
-  "version": "3.4.10",
+  "version": "3.5.0",
   "build": "2026-09-29.1",
   "published_at": "2026-09-29",
-  "channel": "sync-stability-fix"
+  "channel": "crew-live-garage-stability"
 }
