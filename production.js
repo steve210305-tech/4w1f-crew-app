@@ -222,8 +222,33 @@ async function syncStateToBackend(){
 }
 let lastLocalStateWriteAt=0;save=function(){lastLocalStateWriteAt=Date.now();try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}updateBadge();queueBackendSync()};
 
+let liveRealtimeRefreshTimer=null;
+async function refreshLiveLocationsOnly(){
+  if(!prodSession)return;
+  try{
+    const {data:lives,error}=await sb.from('live_locations').select('*');if(error)throw error;
+    const uid=prodSession.user.id,my=(lives||[]).find(l=>l.user_id===uid);
+    if(my&&my.sharing){
+      state.live.share=true;state.live.status=statusFromDb(my.status,my.target_name);state.live.lat=my.latitude??state.live.lat;state.live.lng=my.longitude??state.live.lng;state.live.placeLabel=my.place_label||'';state.live.movementState=my.movement_state||'unknown';state.live.speedKmh=Number(my.speed_kmh||0);
+    }else if(my&&!my.sharing){state.live.share=false}
+    state.live.markers=(lives||[]).filter(l=>l.user_id!==uid&&l.sharing&&l.latitude!=null).map(l=>({id:l.user_id,lat:l.latitude,lng:l.longitude,status:l.place_label||statusFromDb(l.status,l.target_name),placeLabel:l.place_label||'',movementState:l.movement_state||'unknown',speedKmh:Number(l.speed_kmh||0),updatedAt:l.updated_at||null,targetName:l.target_name||''}));
+    try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}
+    if(page==='live'&&typeof window.__4w1fRefreshLive348==='function')window.__4w1fRefreshLive348();
+  }catch(e){productionError(e,'Crew Live Sync')}
+}
+function scheduleLiveRealtimeRefresh(){
+  clearTimeout(liveRealtimeRefreshTimer);
+  liveRealtimeRefreshTimer=setTimeout(refreshLiveLocationsOnly,700);
+}
 function subscribeRealtime(){
-  realtimeChannel?.unsubscribe();realtimeChannel=sb.channel('4w1f-production');for(const t of ['profiles','vehicles','events','event_rsvps','announcements','announcement_receipts','gallery_items','crew_projects','live_locations','crew_settings'])realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh());realtimeChannel.subscribe();
+  realtimeChannel?.unsubscribe();realtimeChannel=sb.channel('4w1f-production');
+  for(const t of ['profiles','vehicles','events','event_rsvps','announcements','announcement_receipts','gallery_items','crew_projects','live_locations','crew_settings']){
+    realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>{
+      if(t==='live_locations'){if(page==='live')scheduleLiveRealtimeRefresh();return}
+      scheduleRealtimeRefresh()
+    })
+  }
+  realtimeChannel.subscribe();
 }
 function scheduleRealtimeRefresh(){
   realtimeRefreshPending=true;
@@ -517,7 +542,31 @@ async function saveLiveMeta(pos){
   if(place&&(!['Panne','Tankstopp'].includes(state.live.status)))state.live.status='Bin da';
   else if(!place&&movement==='unterwegs'&&!['Panne','Tankstopp'].includes(state.live.status))state.live.status='Bin unterwegs';
   liveLastPoint={lat,lng,t:now};
-  if(now-liveLastWrite>12000){liveLastWrite=now;save()}
+  try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}
+  if(now-liveLastWrite>12000&&prodSession?.user?.id){
+    liveLastWrite=now;lastLocalStateWriteAt=now;
+    const lv=state.live;
+    const {error}=await sb.from('live_locations').upsert({
+      user_id:prodSession.user.id,
+      sharing:true,
+      status:statusToDb(lv.status),
+      latitude:lat,
+      longitude:lng,
+      target_type:lv.target?.kind||null,
+      target_id:lv.target?.id||null,
+      target_name:lv.target?.name||null,
+      eta_at:lv._etaAt||null,
+      distance_km:lv.eta?.distance||null,
+      eta_minutes:lv.eta?.minutes||null,
+      expires_at:null,
+      place_label:lv.placeLabel||null,
+      movement_state:movement,
+      speed_kmh:lv.speedKmh||null,
+      updated_at:new Date(now).toISOString()
+    },{onConflict:'user_id'});
+    if(error)productionError(error,'Crew Live');
+  }
+  if(page==='live'&&typeof window.__4w1fRefreshLive348==='function')window.__4w1fRefreshLive348();
 }
 function ensureLiveWatch(){
   if(liveWatchId!=null||!state.live.share||!navigator.geolocation)return;
