@@ -172,16 +172,16 @@ async function loadServerState(){
   const res=await Promise.all(q);for(const r of res)if(r.error)throw r.error;
   const [cfgR,profR,vehR,eventR,rsvpR,annR,receiptR,projectR,liveR,galleryR,pushR,auditR,placesR]=res;
   const cfg=cfgR.data,profiles=profR.data||[],vehicles=vehR.data||[],events=eventR.data||[],rsvps=rsvpR.data||[],anns=annR.data||[],receipts=receiptR.data||[],projects=projectR.data||[],lives=liveR.data||[],gallery=galleryR.data||[],savedPlaces=placesR.data||[];
-  const vehicleMap=new Map(vehicles.map(v=>[v.user_id,v]));const liveMap=new Map(lives.map(v=>[v.user_id,v]));
+  const vehiclesByUser=new Map();for(const row of vehicles){if(!vehiclesByUser.has(row.user_id))vehiclesByUser.set(row.user_id,[]);vehiclesByUser.get(row.user_id).push(row)}for(const list of vehiclesByUser.values())list.sort((x,y)=>(y.is_primary===true)-(x.is_primary===true)||new Date(y.updated_at||0)-new Date(x.updated_at||0));const vehicleMap=new Map([...vehiclesByUser.entries()].map(([userId,list])=>[userId,list.find(v=>v.is_primary)||list[0]]));const liveMap=new Map(lives.map(v=>[v.user_id,v]));
   const fresh=normalize({schema:5,currentUser:uid,settings:{whatsapp:cfg.whatsapp_url||'',push:(pushR.data||[]).length>0,youtube:cfg.youtube_url||'',instagram:cfg.instagram_url||'',welcomeAuto:cfg.welcome_auto!==false,previewMode:cfg.release_stage!=='crew_release'},users:[],applications:[],announcements:[],events:[],live:{share:false,status:'Unsichtbar',lat:null,lng:null,expiresAt:null,target:null,eta:null,markers:[]},photos:[],audit:[],customLabels:cfg.custom_labels||[],branding:{slogan:'Different cars. Same values.'},welcomeSeenBy:[],finalWelcomeSeenBy:[],crew:{about:cfg.about||'',values:(cfg.values_json||[]).map(v=>Array.isArray(v)?v:[String(v.title||'VALUE').toUpperCase(),String(v.text||'')]),rules:cfg.rules_json||[]},projects:[],media:{crewFilmTitle:cfg.film_title||'Mehr als Blech',crewFilmStatus:cfg.film_status||'Vorbereitung'}});
-  fresh.users=profiles.map(p=>{const v=vehicleMap.get(p.id),lv=liveMap.get(p.id);return{id:p.id,name:p.display_name,role:p.role,labels:p.labels||[],car:v?.model||'',ig:p.instagram||'',status:lv?.sharing?statusFromDb(lv.status,lv.target_name):'Offline',emoji:p.role==='owner'?'👑':p.role==='admin'?'💜':'🚗',bio:p.bio||'',joinedAt:(p.joined_at||'').slice(0,10),_active:p.active!==false,_avatarPath:p.avatar_path||null,_vehicle:v?{make:v.make||'',model:v.model||'',year:v.year||null,power_ps:v.power_ps||null,description:v.description||'',mods:v.mods||[],photo_path:v.photo_path||null}:null}});
+  fresh.users=profiles.map(p=>{const list=vehiclesByUser.get(p.id)||[],v=vehicleMap.get(p.id),lv=liveMap.get(p.id),mapVehicle=x=>({id:x.id,make:x.make||'',model:x.model||'',year:x.year||null,power_ps:x.power_ps||null,description:x.description||'',mods:x.mods||[],photo_path:x.photo_path||null,is_primary:x.is_primary===true,updated_at:x.updated_at||null});return{id:p.id,name:p.display_name,role:p.role,labels:p.labels||[],car:v?[v.make,v.model].filter(Boolean).join(' '):'',ig:p.instagram||'',status:lv?.sharing?statusFromDb(lv.status,lv.target_name):'Offline',emoji:p.role==='owner'?'👑':p.role==='admin'?'💜':'🚗',bio:p.bio||'',joinedAt:(p.joined_at||'').slice(0,10),_active:p.active!==false,_avatarPath:p.avatar_path||null,_vehicles:list.map(mapVehicle),_vehicle:v?mapVehicle(v):null}});
   const rsvpByEvent={};for(const r of rsvps){(rsvpByEvent[r.event_id]??={})[r.user_id]=r.status}
   const arrivalsByTarget={};for(const l of lives){if(!l.sharing||!l.target_id)continue;(arrivalsByTarget[l.target_id]??={})[l.user_id]={arrival:l.eta_at?fmtServerTime(l.eta_at):'',minutes:l.eta_minutes||0,distance:Number(l.distance_km||0)}}
   fresh.events=events.map(e=>({id:e.id,name:e.title,date:fmtServerDate(e.starts_at),time:fmtServerTime(e.starts_at),place:e.place_name||'Treffpunkt folgt',lat:e.latitude,lng:e.longitude,type:e.event_type||'Treffen',tagline:e.tagline||'Gemeinsam. Unterwegs. Immer Family.',rsvp:rsvpByEvent[e.id]||{},arrivals:arrivalsByTarget[e.id]||{},stops:Array.isArray(e.route_json)?e.route_json:[],past:e.status==='completed'||e.status==='cancelled'||(e.starts_at&&new Date(e.starts_at)<new Date()),_startsAt:e.starts_at,_endsAt:e.ends_at,_status:e.status,_createdBy:e.created_by,_coverPath:e.cover_path,_isNew:false}));
   const recByAnn={};for(const r of receipts)(recByAnn[r.announcement_id]??=[]).push(r);
   fresh.announcements=anns.map(a=>{const rr=recByAnn[a.id]||[],responses={};for(const o of a.response_options||[])responses[o]=rr.filter(x=>x.response===o).map(x=>x.user_id);return{id:a.id,title:a.title,body:a.body,priority:a.priority,created:a.published_at?new Intl.DateTimeFormat('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Berlin'}).format(new Date(a.published_at)):'',date:a.starts_at?new Date(a.starts_at).toISOString().slice(0,10):'',time:a.starts_at?fmtServerTime(a.starts_at):'',place:a.place_name||'',lat:a.latitude,lng:a.longitude,responseOptions:a.response_options||[],responses,readBy:rr.filter(x=>x.read_at).map(x=>x.user_id),confirmedBy:rr.filter(x=>x.confirmed_at).map(x=>x.user_id),confirmRequired:a.requires_confirmation,hiddenBy:rr.filter(x=>x.hidden_at).map(x=>x.user_id),arrivals:arrivalsByTarget[a.id]||{},_startsAt:a.starts_at,_publishedAt:a.published_at,_pushEnabled:a.push_enabled!==false,_createdBy:a.created_by,_isNew:false,_displayUntil:a.display_until||null,_pinned:!!a.pinned}});
   fresh.projects=projects.map(p=>({id:p.id,icon:p.icon||'◆',title:p.title,status:p.status,statusLabel:p.status_label||projectLabel(p.status),text:p.description||'',_createdBy:p.created_by}));
-  const myLive=liveMap.get(uid);fresh.live={share:!!myLive?.sharing,status:myLive?.sharing?statusFromDb(myLive.status,myLive.target_name):'Unsichtbar',lat:myLive?.latitude??null,lng:myLive?.longitude??null,expiresAt:myLive?.expires_at?new Date(myLive.expires_at).getTime():null,target:myLive?.target_name?{name:myLive.target_name,kind:myLive.target_type,id:myLive.target_id,lat:null,lng:null}:null,eta:myLive?.eta_at?{arrival:fmtServerTime(myLive.eta_at),minutes:myLive.eta_minutes||0,distance:Number(myLive.distance_km||0)}:null,_etaAt:myLive?.eta_at||null,placeLabel:myLive?.place_label||'',movementState:myLive?.movement_state||'unknown',speedKmh:Number(myLive?.speed_kmh||0),markers:lives.filter(l=>l.user_id!==uid&&l.sharing&&l.latitude!=null).map(l=>({id:l.user_id,lat:l.latitude,lng:l.longitude,status:l.place_label||statusFromDb(l.status,l.target_name)}))};
+  const myLive=liveMap.get(uid);fresh.live={share:!!myLive?.sharing,status:myLive?.sharing?statusFromDb(myLive.status,myLive.target_name):'Unsichtbar',lat:myLive?.latitude??null,lng:myLive?.longitude??null,expiresAt:myLive?.expires_at?new Date(myLive.expires_at).getTime():null,target:myLive?.target_name?{name:myLive.target_name,kind:myLive.target_type,id:myLive.target_id,lat:null,lng:null}:null,eta:myLive?.eta_at?{arrival:fmtServerTime(myLive.eta_at),minutes:myLive.eta_minutes||0,distance:Number(myLive.distance_km||0)}:null,_etaAt:myLive?.eta_at||null,placeLabel:myLive?.place_label||'',movementState:myLive?.movement_state||'unknown',speedKmh:Number(myLive?.speed_kmh||0),markers:lives.filter(l=>l.user_id!==uid&&l.sharing&&l.latitude!=null).map(l=>({id:l.user_id,lat:l.latitude,lng:l.longitude,status:l.place_label||statusFromDb(l.status,l.target_name),placeLabel:l.place_label||'',movementState:l.movement_state||'unknown',speedKmh:Number(l.speed_kmh||0),updatedAt:l.updated_at||null,targetName:l.target_name||''}))};
   if(fresh.live.target?.id){const t=fresh.live.target.kind==='event'?fresh.events.find(e=>e.id===fresh.live.target.id):fresh.announcements.find(a=>a.id===fresh.live.target.id);if(t){fresh.live.target.lat=t.lat;fresh.live.target.lng=t.lng}}
   fresh.projects=projects.map(p=>({id:p.id,icon:p.icon||'◆',title:p.title,status:p.status,statusLabel:p.status_label||projectLabel(p.status),text:p.description||'',_createdBy:p.created_by}));
   const meProfile=profiles.find(p=>p.id===uid);if(meProfile?.onboarding_complete){fresh.welcomeSeenBy=[uid];fresh.finalWelcomeSeenBy=[uid]}
@@ -220,7 +220,7 @@ async function syncStateToBackend(){
     try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}syncIndicator('Gespeichert','ok');
   }catch(e){productionError(e,'Speichern')}finally{serverSyncing=false}
 }
-save=function(){try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}updateBadge();queueBackendSync()};
+let lastLocalStateWriteAt=0;save=function(){lastLocalStateWriteAt=Date.now();try{localStorage.setItem(PROD_CACHE_KEY,JSON.stringify(state))}catch{}updateBadge();queueBackendSync()};
 
 function subscribeRealtime(){
   realtimeChannel?.unsubscribe();realtimeChannel=sb.channel('4w1f-production');for(const t of ['profiles','vehicles','events','event_rsvps','announcements','announcement_receipts','gallery_items','crew_projects','live_locations','crew_settings'])realtimeChannel.on('postgres_changes',{event:'*',schema:'public',table:t},()=>scheduleRealtimeRefresh());realtimeChannel.subscribe();
@@ -230,10 +230,18 @@ function scheduleRealtimeRefresh(){
   clearTimeout(realtimeRefreshTimer);
   realtimeRefreshTimer=setTimeout(async()=>{
     if(serverSyncing||serverLoadPromise)return scheduleRealtimeRefresh();
+    if(Date.now()-lastLocalStateWriteAt<2600){realtimeRefreshTimer=setTimeout(scheduleRealtimeRefresh,900);return}
     realtimeRefreshPending=false;
-    try{const currentPage=page;await loadServerState();page=currentPage;render()}
+    const currentPage=page,scrollY=window.scrollY||0,activeTag=document.activeElement?.tagName||'',modalOpen=!!document.querySelector('.modal.show'),editing=['INPUT','TEXTAREA','SELECT'].includes(activeTag);
+    try{
+      await loadServerState();page=currentPage;
+      if(currentPage==='live'&&typeof window.__4w1fRefreshLive348==='function'){window.__4w1fRefreshLive348();return}
+      if(modalOpen||editing){realtimeRefreshPending=true;return}
+      render();
+      requestAnimationFrame(()=>window.scrollTo({top:scrollY,left:0,behavior:'auto'}))
+    }
     catch(e){productionError(e,'Live-Sync')}
-    finally{if(realtimeRefreshPending)scheduleRealtimeRefresh()}
+    finally{if(realtimeRefreshPending)setTimeout(scheduleRealtimeRefresh,1200)}
   },1800)
 }
 
@@ -681,7 +689,7 @@ renderAdmin=function(){_renderAdmin31();const invite=$('#inviteAdmin');if(invite
       }else{
         const path=`${uid}/vehicle-profile.webp`;
         await checked(sb.storage.from('crew-media').upload(path,safe,{contentType:'image/webp',upsert:true}),'Fahrzeugbild');
-        await checked(sb.from('vehicles').upsert({user_id:uid,photo_path:path},{onConflict:'user_id'}),'Fahrzeugbild');
+        const current=me()._vehicle;if(current?.id)await checked(sb.from('vehicles').update({photo_path:path,updated_at:new Date().toISOString()}).eq('id',current.id).eq('user_id',uid),'Fahrzeugbild');else await checked(sb.from('vehicles').insert({user_id:uid,make:'',model:'',photo_path:path,is_primary:true}),'Fahrzeugbild');
       }
       await loadServerState();renderProfile();toast(kind==='avatar'?'Profilbild gespeichert':'Fahrzeugbild gespeichert');
     }catch(e){productionError(e,'Bild');toast('Bild konnte nicht gespeichert werden')}
