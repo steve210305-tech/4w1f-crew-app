@@ -1,8 +1,8 @@
 /* 4W1F 3.4.0 feature pack — loaded after update-3.3.js */
 (function(){
   'use strict';
-  const RELEASE_VERSION_340='3.4.7';
-  const RELEASE_BUILD_340='2026-09-27.3';
+  const RELEASE_VERSION_340='3.5.0';
+  const RELEASE_BUILD_340='2026-09-29.1';
   let soundRealtime340=null,audioCtx340=null;
   const prefsDefaults340={notification_sound:'engine_start',support_sound:'support_terminal_d',sound_enabled:true,support_sound_enabled:true,first_home_seen_at:null,last_home_seen_at:null,last_gallery_seen_at:null};
   const privacyDefaults340={instagram:true,vehicle:true,power:true,mods:true,photos:true};
