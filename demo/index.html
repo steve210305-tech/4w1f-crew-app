@@ -615,9 +615,8 @@ async function checkForUpdates(manual=false){try{const r=await fetch(`./version.
 function initUpdates(){if(!('serviceWorker'in navigator))return;navigator.__disabledDemoServiceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>{updateRegistration=reg;reg.update().catch(()=>{});checkForUpdates(false);setInterval(()=>checkForUpdates(false),5*60*1000)}).catch(()=>{});navigator.__disabledDemoServiceWorker.addEventListener('controllerchange',()=>{if(sessionStorage.getItem('4w1f-reloading'))return;sessionStorage.setItem('4w1f-reloading','1');location.reload()});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){sessionStorage.removeItem('4w1f-reloading');updateRegistration?.update().catch(()=>{});checkForUpdates(false)}});const last=localStorage.getItem('4w1f-display-version');if(last&&last!==APP_VERSION)setTimeout(()=>toast(`Update installiert – Version ${APP_VERSION} ✓`,'update'),800);localStorage.setItem('4w1f-display-version',APP_VERSION)}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e});
 
+window.addEventListener('DOMContentLoaded',()=>{try{applyLaunchContext();initVisualFX();render();document.getElementById('launchScreen')?.remove();document.getElementById('fab')?.remove();document.querySelector('[id="accountBtn"]')?.addEventListener('click',openAccountCenter);document.querySelector('[id="profileBtn"]')?.addEventListener('click',openAccountCenter);}catch(e){console.error('Offline demo startup',e);document.getElementById('view').innerHTML='<div class="card pad">Demo-Startfehler: '+String(e.message).replace(/[<>&]/g,'')+'</div>';}});
+
 </script>
-
-
-
 </body>
 </html>
