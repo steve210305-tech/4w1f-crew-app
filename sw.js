@@ -1,8 +1,24 @@
-const VERSION='3.5.0';
-const CACHE=`4w1f-${VERSION}`;
-const SHELL=['./','./index.html','./production.js','./update-3.3.js','./update-3.4.js','./manifest.webmanifest','./version.json','./assets/icon-180.png','./assets/icon-192.png','./assets/icon-512.png','./assets/favicon-32.png',];
-self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}))});
-self.addEventListener('activate',e=>{e.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('4w1f-')&&k!==CACHE).map(k=>caches.delete(k)));await self.clients.claim()})())});
-self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(r.mode==='navigate'||u.pathname.endsWith('/version.json')||u.pathname.endsWith('/index.html')||u.pathname.endsWith('/production.js')||u.pathname.endsWith('/update-3.3.js')||u.pathname.endsWith('/update-3.4.js')){e.respondWith((async()=>{try{const fresh=await fetch(r,{cache:'no-store'});if(u.origin===self.location.origin){const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{})}return fresh}catch{return(await caches.match(r))||(await caches.match('./index.html'))}})());return}if(u.origin===self.location.origin)e.respondWith((async()=>{const cached=await caches.match(r);const net=fetch(r).then(async fresh=>{const c=await caches.open(CACHE);c.put(r,fresh.clone()).catch(()=>{});return fresh}).catch(()=>null);return cached||(await net)||Response.error()})())});
-self.addEventListener('push',event=>{let d={};try{d=event.data?.json()||{}}catch{d={body:event.data?.text()||''}}const title=d.title||'4 Wheels 1 Family';const options={body:d.body||'Neue Crew-Nachricht',icon:'./assets/icon-192.png',badge:'./assets/icon-192.png',tag:d.tag||'4w1f',renotify:true,data:{url:d.url||'./'},vibrate:[90,60,90]};event.waitUntil(self.registration.showNotification(title,options))});
-self.addEventListener('notificationclick',event=>{event.notification.close();const target=new URL(event.notification.data?.url||'./',self.registration.scope).href;event.waitUntil((async()=>{const list=await clients.matchAll({type:'window',includeUncontrolled:true});for(const c of list){if('focus'in c){await c.focus();if('navigate'in c)await c.navigate(target);return}}if(clients.openWindow)return clients.openWindow(target)})())});
+const OFFLINE_VERSION='4w1f-offline-2026-10-28';
+self.addEventListener('install',event=>{self.skipWaiting()});
+self.addEventListener('activate',event=>{
+  event.waitUntil((async()=>{
+    const keys=await caches.keys();
+    await Promise.all(keys.map(k=>caches.delete(k)));
+    await self.clients.claim();
+  })());
+});
+self.addEventListener('fetch',event=>{
+  const req=event.request;
+  if(req.method!=='GET')return;
+  const url=new URL(req.url);
+  if(url.origin!==self.location.origin)return;
+  if(url.pathname.endsWith('/sw.js'))return;
+  if(req.mode==='navigate'){
+    event.respondWith(fetch('./index.html',{cache:'no-store'}).catch(()=>new Response(
+      '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>body{margin:0;display:grid;place-items:center;min-height:100vh;background:#050507;color:white;font:16px system-ui;text-align:center}b{color:#a94cff}</style><div><h2>4 Wheels <b>1 Family</b></h2><p>Die App ist derzeit offline.</p></div>',
+      {headers:{'content-type':'text/html; charset=utf-8'}}
+    )));
+    return;
+  }
+  event.respondWith(fetch(req,{cache:'no-store'}).catch(()=>new Response('',{status:503,statusText:'4W1F offline'})));
+});
